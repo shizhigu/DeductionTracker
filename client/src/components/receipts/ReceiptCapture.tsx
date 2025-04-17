@@ -103,14 +103,21 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
   // 初始化摄像头（实际启动摄像头的函数）
   const initializeCamera = async () => {
     try {
-      // 设置状态并提前显示UI元素
+      // 设置状态并提前显示UI元素 
       setIsCameraActive(true);
       
       console.log("摄像头启动流程开始...");
+
+      // 关闭iOS权限对话框
+      setShowIOSPermissionDialog(false);
+
+      // 等待视频元素渲染完成
+      // 这里添加一个小延迟确保DOM已更新
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       // 基本检查
       if (!videoRef.current) {
-        console.error("错误: 视频元素未找到");
+        console.error("错误: 视频元素未找到，请稍后再试");
         throw new Error("视频元素未找到");
       }
       

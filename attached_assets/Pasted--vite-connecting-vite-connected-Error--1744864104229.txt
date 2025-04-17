@@ -1,0 +1,22 @@
+[vite] connecting...
+[vite] connected.
+摄像头启动流程开始...
+错误: 视频元素未找到
+相机启动失败: 
+Error {}
+
+摄像头启动流程开始...
+错误: 视频元素未找到
+相机启动失败: 
+Error {}
+message: "视频元素未找到"
+stack: "Error: 视频元素未找到↵ at initializeCamera (https://457a787c-d99f-40cf-9913-160ca88dd26e-00-g46qhn14tzib.riker.replit.dev/src/components/receipts/ReceiptCapture.tsx:102:15)↵ at startCamera (https://457a787c-d99f-40cf-9913-160ca88dd26e-00-g46qhn14tzib.riker.replit.dev/src/components/receipts/ReceiptCapture.tsx:93:7)↵ at HTMLUnknownElement.callCallback2 (https://457a787c-d99f-40cf-9913-160ca88dd26e-00-g46qhn14tzib.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=4ef67863:3674:22)↵ at Object.invokeGuardedCallbackDev (https://457a787c-d99f-40cf-9913-160ca88dd26e-00-g46qhn14tzib.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=4ef67863:3699:24)↵ at invokeGuardedCallback (https://457a787c-d99f-40cf-9913-160ca88dd26e-00-g46qhn14tzib.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=4ef67863:3733:39)↵ at invokeGuardedCallbackAndCatchFirstError (https://457a787c-d99f-40cf-9913-160ca88dd26e-00-g46qhn14tzib.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=4ef67863:3736:33)↵ at executeDispatch (https://457a787c-d99f-40cf-9913-160ca88dd26e-00-g46qhn14tzib.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=4ef67863:7014:11)↵ at processDispatchQueueItemsInOrder (https://457a787c-d99f-40cf-9913-160ca88dd26e-00-g46qhn14tzib.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=4ef67863:7034:15)↵ at processDispatchQueue (https://457a787c-d99f-40cf-9913-160ca88dd26e-00-g46qhn14tzib.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=4ef67863:7043:13)↵ at dispatchEventsForPlugins (https://457a787c-d99f-40cf-9913-160ca88dd26e-00-g46qhn14tzib.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=4ef67863:7051:11)"
+get stack: ƒ ()
+set stack: ƒ ()
+[[Prototype]]: Object
+
+摄像头启动流程开始...
+错误: 视频元素未找到
+相机启动失败: 
+Error {}
+
