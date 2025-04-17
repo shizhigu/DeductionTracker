@@ -66,14 +66,43 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
     try {
       setIsCameraActive(true);
       
-      if (!videoRef.current) return;
+      if (!videoRef.current) {
+        console.error("视频元素未找到");
+        return;
+      }
       
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment" } 
-      });
+      // 首先尝试使用后置摄像头
+      try {
+        const constraints = {
+          video: {
+            facingMode: { exact: "environment" },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        };
+        
+        console.log("正在尝试访问后置摄像头...");
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        videoRef.current.srcObject = stream;
+        console.log("成功获取后置摄像头流");
+      } catch (err) {
+        // 如果后置摄像头失败，尝试任何可用的摄像头
+        console.log("后置摄像头访问失败，尝试任何可用摄像头...", err);
+        const fallbackConstraints = { 
+          video: true,
+          audio: false
+        };
+        const stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+        videoRef.current.srcObject = stream;
+        console.log("成功获取可用摄像头流");
+      }
       
-      videoRef.current.srcObject = stream;
-      videoRef.current.play();
+      // 确保视频加载并播放
+      videoRef.current.onloadedmetadata = () => {
+        if (videoRef.current) {
+          videoRef.current.play().catch(e => console.error("视频播放失败:", e));
+        }
+      };
       
       toast({
         title: "相机已开启",

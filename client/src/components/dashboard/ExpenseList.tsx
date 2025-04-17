@@ -99,52 +99,54 @@ function ExpenseItem({ expense, category, isMobile }: ExpenseItemProps) {
   
   if (isMobile) {
     return (
-      <Link href={`/expenses/${expense.id}`}>
-        <a className="bg-white rounded-xl p-3 border border-neutral-100 shadow-sm flex items-center">
-          <div className={`w-10 h-10 rounded-lg ${bgColor} flex items-center justify-center ${textColor} mr-3`}>
-            {IconComponent}
-          </div>
-          <div className="flex-1">
-            <div className="flex justify-between">
-              <h4 className="font-medium text-sm text-neutral-800">
-                {expense.vendor.length > 15 ? expense.vendor.substring(0, 15) + '...' : expense.vendor}
-              </h4>
-              <p className="font-medium text-sm text-neutral-800">{formattedAmount}</p>
-            </div>
-            <div className="flex justify-between mt-0.5">
-              <p className="text-xs text-neutral-500">
-                {expense.notes?.substring(0, 20) || category?.name || ''}
-              </p>
-              <Badge variant={badgeType} className="text-[10px] px-1.5 py-0.5 rounded-full">
-                {badgeText}
-              </Badge>
-            </div>
-          </div>
-        </a>
-      </Link>
-    );
-  }
-  
-  return (
-    <Link href={`/expenses/${expense.id}`}>
-      <a className="bg-white rounded-xl p-4 border border-neutral-100 shadow-sm flex items-center">
-        <div className={`w-12 h-12 rounded-lg ${bgColor} flex items-center justify-center ${textColor} mr-4`}>
+      <div 
+        className="bg-white rounded-xl p-3 border border-neutral-100 shadow-sm flex items-center cursor-pointer"
+        onClick={() => window.location.href = `/expenses/${expense.id}`}
+      >
+        <div className={`w-10 h-10 rounded-lg ${bgColor} flex items-center justify-center ${textColor} mr-3`}>
           {IconComponent}
         </div>
         <div className="flex-1">
           <div className="flex justify-between">
-            <h4 className="font-medium text-neutral-800">{expense.vendor}</h4>
-            <p className="font-medium text-neutral-800">{formattedAmount}</p>
+            <h4 className="font-medium text-sm text-neutral-800">
+              {expense.vendor.length > 15 ? expense.vendor.substring(0, 15) + '...' : expense.vendor}
+            </h4>
+            <p className="font-medium text-sm text-neutral-800">{formattedAmount}</p>
           </div>
-          <div className="flex justify-between mt-1">
-            <p className="text-sm text-neutral-500">{expense.notes || category?.name || ''}</p>
-            <Badge variant={badgeType} className="rounded-full">
+          <div className="flex justify-between mt-0.5">
+            <p className="text-xs text-neutral-500">
+              {expense.notes?.substring(0, 20) || category?.name || ''}
+            </p>
+            <Badge variant={badgeType} className="text-[10px] px-1.5 py-0.5 rounded-full">
               {badgeText}
             </Badge>
           </div>
         </div>
-      </a>
-    </Link>
+      </div>
+    );
+  }
+  
+  return (
+    <div 
+      className="bg-white rounded-xl p-4 border border-neutral-100 shadow-sm flex items-center cursor-pointer"
+      onClick={() => window.location.href = `/expenses/${expense.id}`}
+    >
+      <div className={`w-12 h-12 rounded-lg ${bgColor} flex items-center justify-center ${textColor} mr-4`}>
+        {IconComponent}
+      </div>
+      <div className="flex-1">
+        <div className="flex justify-between">
+          <h4 className="font-medium text-neutral-800">{expense.vendor}</h4>
+          <p className="font-medium text-neutral-800">{formattedAmount}</p>
+        </div>
+        <div className="flex justify-between mt-1">
+          <p className="text-sm text-neutral-500">{expense.notes || category?.name || ''}</p>
+          <Badge variant={badgeType} className="rounded-full">
+            {badgeText}
+          </Badge>
+        </div>
+      </div>
+    </div>
   );
 }
 
