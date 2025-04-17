@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { X, Camera, Upload, Edit, CheckCircle, Briefcase, User } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,12 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
   const [category, setCategory] = useState("1"); // Office Supplies
   const [isBusinessExpense, setIsBusinessExpense] = useState(true);
   const [notes, setNotes] = useState("");
+  
+  // Camera handling states
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   
   const createExpenseMutation = useMutation({
     mutationFn: async (newExpense: InsertExpense) => {
@@ -55,12 +61,90 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
     }
   });
   
+  // Camera functionality
+  const startCamera = async () => {
+    try {
+      setIsCameraActive(true);
+      
+      if (!videoRef.current) return;
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: "environment" } 
+      });
+      
+      videoRef.current.srcObject = stream;
+      videoRef.current.play();
+      
+      toast({
+        title: "相机已开启",
+        description: "请对准收据拍照",
+      });
+    } catch (error) {
+      console.error("相机启动失败:", error);
+      toast({
+        variant: "destructive",
+        title: "相机访问失败",
+        description: "请确保已授予相机权限，或尝试上传已有照片",
+      });
+      setIsCameraActive(false);
+    }
+  };
+  
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      const tracks = stream.getTracks();
+      
+      tracks.forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    
+    setIsCameraActive(false);
+  };
+  
+  const captureImage = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    
+    // 设置Canvas尺寸与视频相同
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    // 绘制视频帧到Canvas
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    // 转换为图像URL
+    const imageUrl = canvas.toDataURL('image/jpeg');
+    setCapturedImage(imageUrl);
+    
+    // 停止相机
+    stopCamera();
+    
+    toast({
+      title: "拍照成功",
+      description: "收据已捕获",
+    });
+  };
+  
+  useEffect(() => {
+    // 组件卸载时停止相机
+    return () => {
+      stopCamera();
+    };
+  }, []);
+  
   const resetForm = () => {
     setVendor("Office Depot");
     setAmount("86.45");
     setCategory("1");
     setIsBusinessExpense(true);
     setNotes("");
+    setCapturedImage(null);
   };
   
   const handleSave = () => {
@@ -97,23 +181,54 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
         <div className="bg-white rounded-t-xl w-full p-5 slide-in-bottom">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold">Capture Receipt</h3>
-            <button onClick={onClose} className="text-neutral-500 hover:text-neutral-700">
+            <button 
+              onClick={() => {
+                stopCamera();
+                onClose();
+              }} 
+              className="text-neutral-500 hover:text-neutral-700"
+            >
               <X className="h-5 w-5" />
             </button>
           </div>
           
           <div className="mb-4 border-2 border-dashed border-neutral-300 rounded-lg p-4 flex flex-col items-center justify-center">
-            <img 
-              src="https://images.unsplash.com/photo-1567301861581-f135cd5ff9de?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80" 
-              alt="Receipt placeholder" 
-              className="max-w-xs mb-3" 
-            />
+            {isCameraActive ? (
+              <div className="relative w-full h-64 mb-3">
+                <video 
+                  ref={videoRef} 
+                  className="w-full h-full object-cover rounded-lg"
+                  autoPlay 
+                  playsInline
+                />
+                <canvas ref={canvasRef} className="hidden" />
+              </div>
+            ) : capturedImage ? (
+              <img 
+                src={capturedImage} 
+                alt="Captured receipt" 
+                className="max-w-xs mb-3 rounded-lg" 
+              />
+            ) : (
+              <img 
+                src="https://images.unsplash.com/photo-1567301861581-f135cd5ff9de?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80" 
+                alt="Receipt placeholder" 
+                className="max-w-xs mb-3 rounded-lg" 
+              />
+            )}
+            
             <div className="flex space-x-2">
-              <Button>
-                <Camera className="h-4 w-4 mr-1" /> Retake
-              </Button>
+              {isCameraActive ? (
+                <Button onClick={captureImage}>
+                  <Camera className="h-4 w-4 mr-1" /> 拍照
+                </Button>
+              ) : (
+                <Button onClick={startCamera}>
+                  <Camera className="h-4 w-4 mr-1" /> {capturedImage ? "重新拍照" : "拍摄收据"}
+                </Button>
+              )}
               <Button variant="outline">
-                <Upload className="h-4 w-4 mr-1" /> Upload
+                <Upload className="h-4 w-4 mr-1" /> 上传图片
               </Button>
             </div>
           </div>
@@ -222,24 +337,57 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
   }
   
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog 
+      open={isOpen} 
+      onOpenChange={(open) => {
+        if (!open) {
+          stopCamera();
+          onClose();
+        }
+      }}
+    >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Capture Receipt</DialogTitle>
         </DialogHeader>
         
         <div className="mb-4 border-2 border-dashed border-neutral-300 rounded-lg p-4 flex flex-col items-center justify-center">
-          <img 
-            src="https://images.unsplash.com/photo-1567301861581-f135cd5ff9de?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80" 
-            alt="Receipt placeholder" 
-            className="max-w-xs mb-3" 
-          />
+          {isCameraActive ? (
+            <div className="relative w-full h-64 mb-3">
+              <video 
+                ref={videoRef} 
+                className="w-full h-full object-cover rounded-lg"
+                autoPlay 
+                playsInline
+              />
+              <canvas ref={canvasRef} className="hidden" />
+            </div>
+          ) : capturedImage ? (
+            <img 
+              src={capturedImage} 
+              alt="Captured receipt" 
+              className="max-w-xs mb-3 rounded-lg" 
+            />
+          ) : (
+            <img 
+              src="https://images.unsplash.com/photo-1567301861581-f135cd5ff9de?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80" 
+              alt="Receipt placeholder" 
+              className="max-w-xs mb-3 rounded-lg" 
+            />
+          )}
+            
           <div className="flex space-x-2">
-            <Button>
-              <Camera className="h-4 w-4 mr-1" /> Retake
-            </Button>
+            {isCameraActive ? (
+              <Button onClick={captureImage}>
+                <Camera className="h-4 w-4 mr-1" /> 拍照
+              </Button>
+            ) : (
+              <Button onClick={startCamera}>
+                <Camera className="h-4 w-4 mr-1" /> {capturedImage ? "重新拍照" : "拍摄收据"}
+              </Button>
+            )}
             <Button variant="outline">
-              <Upload className="h-4 w-4 mr-1" /> Upload
+              <Upload className="h-4 w-4 mr-1" /> 上传图片
             </Button>
           </div>
         </div>
