@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { X, Camera, Upload, Edit, CheckCircle, Briefcase, User } from "lucide-react";
+import { X, Camera, Upload, Edit, CheckCircle, Briefcase, User, AlertCircle, ArrowRight } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,6 +9,16 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { InsertExpense } from "@/lib/types";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ReceiptCaptureProps {
   isOpen: boolean;
@@ -32,6 +42,9 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  
+  // iOS权限请求状态
+  const [showIOSPermissionDialog, setShowIOSPermissionDialog] = useState(false);
   
   const createExpenseMutation = useMutation({
     mutationFn: async (newExpense: InsertExpense) => {
@@ -67,8 +80,28 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
   };
   
-  // Camera functionality
-  const startCamera = async () => {
+  // 打开iOS特定的权限请求对话框
+  const requestIOSCameraPermission = () => {
+    // 只有在iOS设备上才显示权限对话框
+    if (isIOS()) {
+      setShowIOSPermissionDialog(true);
+    } else {
+      initializeCamera();
+    }
+  };
+
+  // Camera functionality - 包装函数，用于判断是否需要iOS特殊处理
+  const startCamera = () => {
+    // 检查是否为iOS设备
+    if (isIOS()) {
+      requestIOSCameraPermission();
+    } else {
+      initializeCamera();
+    }
+  };
+  
+  // 初始化摄像头（实际启动摄像头的函数）
+  const initializeCamera = async () => {
     try {
       // 设置状态并提前显示UI元素
       setIsCameraActive(true);
@@ -332,6 +365,44 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
     
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end overflow-y-auto">
+        {/* iOS摄像头权限申请对话框 */}
+        <AlertDialog 
+          open={showIOSPermissionDialog} 
+          onOpenChange={(open) => !open && setShowIOSPermissionDialog(false)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center text-lg">
+                <Camera className="mr-2 h-5 w-5 text-primary" /> 相机权限请求
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-4">
+                <p>
+                  DeduX需要访问您的相机以拍摄收据照片。请在接下来的系统提示中点击"允许"。
+                </p>
+                <div className="rounded-lg border border-muted bg-muted/50 p-3 text-sm">
+                  <div className="flex flex-col space-y-3">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-yellow-500" />
+                      <span className="font-semibold text-sm">iOS需要特别授权</span>
+                    </div>
+                    <div className="ml-6 text-xs space-y-2">
+                      <p>1. 点击下面的"授予权限"按钮</p>
+                      <p>2. 在弹出的系统提示中选择"允许"</p>
+                      <p>3. 如已拒绝，请在设置中手动开启相机权限</p>
+                    </div>
+                  </div>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogAction onClick={initializeCamera} className="bg-primary text-white">
+                授予权限 <ArrowRight className="ml-1 h-4 w-4" />
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         <div className="bg-white rounded-t-xl w-full p-5 slide-in-bottom max-h-[90vh] overflow-y-auto">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold">Capture Receipt</h3>
@@ -355,7 +426,6 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
                   autoPlay 
                   playsInline
                   muted 
-                  webkit-playsinline="true"
                 />
                 <canvas ref={canvasRef} className="hidden" />
                 <button 
@@ -499,190 +569,217 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
           </div>
           
           <Button 
-            className="w-full"
-            onClick={handleSave}
+            className="w-full py-6 text-base"
             disabled={createExpenseMutation.isPending}
+            onClick={handleSave}
           >
-            {createExpenseMutation.isPending ? "Saving..." : "Save Expense"}
+            Save Expense
           </Button>
         </div>
       </div>
     );
   }
   
+  // Desktop version
   return (
-    <Dialog 
-      open={isOpen} 
-      onOpenChange={(open) => {
-        if (!open) {
-          stopCamera();
-          onClose();
-        }
-      }}
-    >
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Capture Receipt</DialogTitle>
-        </DialogHeader>
-        
-        <div className="mb-4 border-2 border-dashed border-neutral-300 rounded-lg p-4 flex flex-col items-center justify-center">
-          {isCameraActive ? (
-            <div className="relative w-full h-64 mb-3">
-              <video 
-                ref={videoRef} 
-                className="w-full h-full object-cover rounded-lg"
-                autoPlay 
-                playsInline
-                muted
-                webkit-playsinline="true"
-              />
-              <canvas ref={canvasRef} className="hidden" />
-              <button 
-                onClick={() => {
-                  stopCamera();
-                  setFacingMode(facingMode === "environment" ? "user" : "environment");
-                  setTimeout(() => {
-                    startCamera();
-                  }, 300);
-                }}
-                className="absolute bottom-2 right-2 bg-white bg-opacity-75 p-2 rounded-full"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"></path>
-                  <rect x="16" y="2" width="6" height="6" rx="1"></rect>
-                  <path d="m21 15-3-3 3-3"></path>
-                  <path d="m8 12 4-4 4 4"></path>
-                  <path d="m8 12 4 4 4-4"></path>
-                </svg>
-              </button>
-            </div>
-          ) : capturedImage ? (
-            <img 
-              src={capturedImage} 
-              alt="Captured receipt" 
-              className="max-w-xs mb-3 rounded-lg" 
-            />
-          ) : (
-            <img 
-              src="https://images.unsplash.com/photo-1567301861581-f135cd5ff9de?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80" 
-              alt="Receipt placeholder" 
-              className="max-w-xs mb-3 rounded-lg" 
-            />
-          )}
-            
-          <div className="flex space-x-2">
-            {isCameraActive ? (
-              <Button onClick={captureImage}>
-                <Camera className="h-4 w-4 mr-1" /> 拍照
-              </Button>
-            ) : (
-              <Button onClick={startCamera}>
-                <Camera className="h-4 w-4 mr-1" /> {capturedImage ? "重新拍照" : "拍摄收据"}
-              </Button>
-            )}
-            <Button variant="outline">
-              <Upload className="h-4 w-4 mr-1" /> 上传图片
-            </Button>
-          </div>
-        </div>
-        
-        <div className="space-y-4 mb-4">
-          <div>
-            <Label>Vendor</Label>
-            <div className="flex">
-              <div className="flex-1 border border-neutral-300 p-2 rounded-lg">
-                <div className="flex items-center">
-                  <div className="w-8 h-8 rounded bg-blue-100 flex items-center justify-center text-blue-500 mr-2">
-                    <Briefcase className="h-4 w-4" />
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      {/* iOS摄像头权限申请对话框 */}
+      <AlertDialog 
+        open={showIOSPermissionDialog} 
+        onOpenChange={(open) => !open && setShowIOSPermissionDialog(false)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center text-lg">
+              <Camera className="mr-2 h-5 w-5 text-primary" /> Camera Permission Required
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-4">
+              <p>
+                DeduX needs access to your camera to take photos of receipts. Please click "Allow" in the system prompt that appears.
+              </p>
+              <div className="rounded-lg border border-muted bg-muted/50 p-3 text-sm">
+                <div className="flex flex-col space-y-3">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-yellow-500" />
+                    <span className="font-semibold text-sm">iOS Requires Special Permission</span>
                   </div>
-                  <span>{vendor}</span>
+                  <div className="ml-6 text-xs space-y-2">
+                    <p>1. Click the "Grant Permission" button below</p>
+                    <p>2. Select "Allow" in the system prompt</p>
+                    <p>3. If previously denied, enable camera access in Settings</p>
+                  </div>
                 </div>
               </div>
-              <button 
-                className="ml-2 border border-neutral-300 px-3 rounded-lg"
-                onClick={() => setVendor(prompt("Enter vendor name", vendor) || vendor)}
-              >
-                <Edit className="h-4 w-4" />
-              </button>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={initializeCamera} className="bg-primary text-white">
+              Grant Permission <ArrowRight className="ml-1 h-4 w-4" />
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Add New Expense</DialogTitle>
+        </DialogHeader>
+        
+        <div className="grid grid-cols-5 gap-6">
+          <div className="col-span-2 flex flex-col items-center justify-start">
+            <div className="w-full aspect-[4/3] rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center overflow-hidden mb-3">
+              {isCameraActive ? (
+                <div className="relative w-full h-full">
+                  <video 
+                    ref={videoRef} 
+                    className="w-full h-full object-cover"
+                    autoPlay
+                    playsInline
+                    muted
+                  />
+                  <canvas ref={canvasRef} className="hidden" />
+                  <button 
+                    onClick={() => {
+                      stopCamera();
+                      setFacingMode(facingMode === "environment" ? "user" : "environment");
+                      setTimeout(() => {
+                        startCamera();
+                      }, 300);
+                    }}
+                    className="absolute bottom-2 right-2 bg-white bg-opacity-75 p-2 rounded-full"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"></path>
+                      <rect x="16" y="2" width="6" height="6" rx="1"></rect>
+                      <path d="m21 15-3-3 3-3"></path>
+                      <path d="m8 12 4-4 4 4"></path>
+                      <path d="m8 12 4 4 4-4"></path>
+                    </svg>
+                  </button>
+                </div>
+              ) : capturedImage ? (
+                <img 
+                  src={capturedImage} 
+                  alt="Captured receipt" 
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <div className="p-6 text-center">
+                  <Camera className="mx-auto h-12 w-12 text-gray-400" />
+                  <p className="mt-2 text-sm text-gray-500">Capture or upload a receipt image</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex flex-col gap-2 w-full">
+              {isCameraActive ? (
+                <Button onClick={captureImage} className="w-full">
+                  <Camera className="h-4 w-4 mr-2" /> Take Photo
+                </Button>
+              ) : (
+                <Button onClick={startCamera} className="w-full">
+                  <Camera className="h-4 w-4 mr-2" /> {capturedImage ? "Retake Photo" : "Capture Receipt"}
+                </Button>
+              )}
+              <Button variant="outline" className="w-full">
+                <Upload className="h-4 w-4 mr-2" /> Upload Image
+              </Button>
             </div>
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Amount</Label>
-              <input 
-                type="text"
-                value={amount} 
-                onChange={(e) => setAmount(e.target.value)}
-                className="border border-neutral-300 p-2 rounded-lg w-full"
-              />
-            </div>
-            <div>
-              <Label>Date</Label>
-              <div className="border border-neutral-300 p-2 rounded-lg">
-                <span>Today, {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+          <div className="col-span-3 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <Label htmlFor="vendor">Vendor</Label>
+                <input
+                  id="vendor"
+                  className="w-full p-2 border border-gray-300 rounded-md mt-1"
+                  value={vendor}
+                  onChange={(e) => setVendor(e.target.value)}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="amount">Amount</Label>
+                <input
+                  id="amount"
+                  className="w-full p-2 border border-gray-300 rounded-md mt-1"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="date">Date</Label>
+                <input
+                  id="date"
+                  className="w-full p-2 border border-gray-300 rounded-md mt-1"
+                  type="date"
+                  defaultValue={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="category">Category</Label>
+                <Select defaultValue={category} onValueChange={setCategory}>
+                  <SelectTrigger className="w-full p-2 border border-gray-300 rounded-md mt-1 bg-white">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Office Supplies</SelectItem>
+                    <SelectItem value="2">Software</SelectItem>
+                    <SelectItem value="3">Travel</SelectItem>
+                    <SelectItem value="4">Meals</SelectItem>
+                    <SelectItem value="5">Marketing</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="expense-type">Expense Type</Label>
+                <div className="flex mt-1 rounded-md overflow-hidden">
+                  <button 
+                    className={`flex-1 ${isBusinessExpense ? 'bg-primary-50 border-primary-200 text-primary-700' : 'bg-white border-gray-300 text-gray-500'} border p-2 font-medium border-r-0`}
+                    onClick={() => setIsBusinessExpense(true)}
+                  >
+                    <Briefcase className="h-4 w-4 inline mr-1" /> Business
+                  </button>
+                  <button 
+                    className={`flex-1 ${!isBusinessExpense ? 'bg-primary-50 border-primary-200 text-primary-700' : 'bg-white border-gray-300 text-gray-500'} border p-2 font-medium`}
+                    onClick={() => setIsBusinessExpense(false)}
+                  >
+                    <User className="h-4 w-4 inline mr-1" /> Personal
+                  </button>
+                </div>
+              </div>
+              
+              <div className="col-span-2">
+                <Label htmlFor="notes">Notes (Optional)</Label>
+                <Textarea 
+                  id="notes"
+                  className="w-full p-2 border border-gray-300 rounded-md mt-1" 
+                  rows={4} 
+                  placeholder="Add details about this expense..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
               </div>
             </div>
-          </div>
-          
-          <div>
-            <Label>Category</Label>
-            <Select defaultValue={category} onValueChange={setCategory}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">Office Supplies</SelectItem>
-                <SelectItem value="2">Software</SelectItem>
-                <SelectItem value="3">Travel</SelectItem>
-                <SelectItem value="4">Meals</SelectItem>
-                <SelectItem value="5">Marketing</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <Label>Expense Type</Label>
-              <div className="flex items-center bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full">
-                <CheckCircle className="h-3 w-3 mr-1" />
-                <span>Looks deductible!</span>
-              </div>
-            </div>
-            <div className="flex">
-              <button 
-                className={`flex-1 ${isBusinessExpense ? 'bg-primary-50 border-primary-200 text-primary-700' : 'bg-white border-neutral-300 text-neutral-500'} border p-2 rounded-l-lg font-medium`}
-                onClick={() => setIsBusinessExpense(true)}
+            
+            <div className="pt-2 flex justify-end space-x-2">
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                disabled={createExpenseMutation.isPending}
+                onClick={handleSave}
               >
-                <Briefcase className="h-4 w-4 inline mr-1" /> Business
-              </button>
-              <button 
-                className={`flex-1 ${!isBusinessExpense ? 'bg-primary-50 border-primary-200 text-primary-700' : 'bg-white border-neutral-300 text-neutral-500'} border p-2 rounded-r-lg font-medium`}
-                onClick={() => setIsBusinessExpense(false)}
-              >
-                <User className="h-4 w-4 inline mr-1" /> Personal
-              </button>
+                Save Expense
+              </Button>
             </div>
-          </div>
-          
-          <div>
-            <Label>Notes (Optional)</Label>
-            <Textarea 
-              rows={2} 
-              placeholder="Add details about this expense..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
           </div>
         </div>
-        
-        <Button 
-          className="w-full"
-          onClick={handleSave}
-          disabled={createExpenseMutation.isPending}
-        >
-          {createExpenseMutation.isPending ? "Saving..." : "Save Expense"}
-        </Button>
       </DialogContent>
     </Dialog>
   );
