@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { X, Camera, Upload, Edit, CheckCircle, Briefcase, User, AlertCircle, ArrowRight } from "lucide-react";
+import { X, Camera, Upload, Edit, CheckCircle, Briefcase, User } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,16 +9,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { InsertExpense } from "@/lib/types";
-import { 
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 interface ReceiptCaptureProps {
   isOpen: boolean;
@@ -36,15 +26,10 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
   const [isBusinessExpense, setIsBusinessExpense] = useState(true);
   const [notes, setNotes] = useState("");
   
-  // Camera handling states
-  const [isCameraActive, setIsCameraActive] = useState(false);
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  
-  // iOS权限请求状态
-  const [showIOSPermissionDialog, setShowIOSPermissionDialog] = useState(false);
+  // 从文件输入获取照片
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const createExpenseMutation = useMutation({
     mutationFn: async (newExpense: InsertExpense) => {
@@ -59,8 +44,8 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
       queryClient.invalidateQueries({ queryKey: ['/api/summary/category-breakdown'] });
       
       toast({
-        title: "Expense saved",
-        description: "Your expense has been recorded successfully.",
+        title: "收据已保存",
+        description: "您的支出记录已成功创建。",
       });
       
       resetForm();
@@ -69,268 +54,41 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
     onError: (error) => {
       toast({
         variant: "destructive",
-        title: "Failed to save expense",
-        description: "Please try again later.",
+        title: "保存失败",
+        description: "请稍后再试。",
       });
     }
   });
   
-  // 判断是否为iOS设备
-  const isIOS = () => {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-  };
-  
-  // 打开iOS特定的权限请求对话框
-  const requestIOSCameraPermission = () => {
-    // 只有在iOS设备上才显示权限对话框
-    if (isIOS()) {
-      setShowIOSPermissionDialog(true);
-    } else {
-      initializeCamera();
-    }
-  };
-
-  // Camera functionality - 包装函数，用于判断是否需要iOS特殊处理
-  const startCamera = () => {
-    // 检查是否为iOS设备
-    if (isIOS()) {
-      requestIOSCameraPermission();
-    } else {
-      initializeCamera();
+  // 打开系统摄像头
+  const handleCameraCapture = () => {
+    // 确保文件输入引用存在
+    if (fileInputRef.current) {
+      // 设置accept属性为image/*,capture=camera以激活原生摄像头
+      fileInputRef.current.setAttribute('capture', 'environment');
+      fileInputRef.current.click();
     }
   };
   
-  // 初始化摄像头（实际启动摄像头的函数）
-  const initializeCamera = async () => {
-    try {
-      // 设置状态并提前显示UI元素 
-      setIsCameraActive(true);
+  // 处理文件选择
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      setPhotoFile(file);
       
-      console.log("摄像头启动流程开始...");
-
-      // 关闭iOS权限对话框
-      setShowIOSPermissionDialog(false);
-
-      // 等待视频元素渲染完成
-      // 这里添加一个小延迟确保DOM已更新
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // 基本检查
-      if (!videoRef.current) {
-        console.error("错误: 视频元素未找到，请稍后再试");
-        throw new Error("视频元素未找到");
-      }
-      
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        console.error("错误: 浏览器不支持摄像头API");
-        throw new Error("浏览器不支持getUserMedia API");
-      }
-
-      // 检测并记录设备环境
-      const isIOSDevice = isIOS();
-      console.log(`设备环境: iOS=${isIOSDevice}, Safari=${/Safari/.test(navigator.userAgent)}, 请求方向=${facingMode}`);
-      
-      // 确保视频元素有正确的属性（特别是iOS）
-      if (videoRef.current) {
-        videoRef.current.setAttribute('autoplay', 'true');
-        videoRef.current.setAttribute('muted', 'true');
-        videoRef.current.setAttribute('playsinline', 'true');
-        videoRef.current.muted = true;
-        
-        if (isIOSDevice) {
-          videoRef.current.setAttribute('controls', 'false');
-          videoRef.current.setAttribute('webkit-playsinline', 'true');
-        }
-      }
-      
-      try {
-        console.log("Step 1: 尝试获取设备列表");
-        // 先请求设备访问权限（可能会触发权限提示）
-        await navigator.mediaDevices.getUserMedia({ audio: false, video: true })
-          .then(stream => {
-            // 立即关闭这个初始流
-            stream.getTracks().forEach(track => track.stop());
-            console.log("已获得初始权限");
-          })
-          .catch(err => {
-            console.error("初始权限请求失败:", err.name, err.message);
-            throw err;
-          });
-          
-        // 列举设备（调试用）
-        console.log("Step 2: 枚举视频设备");
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        console.log(`发现${videoDevices.length}个视频设备:`, videoDevices);
-        
-        // 构建约束条件
-        let constraints;
-        if (isIOSDevice) {
-          console.log("Step 3a: 使用iOS优化配置");
-          constraints = {
-            audio: false,
-            video: {
-              facingMode: facingMode,
-              width: { ideal: 640 },  // iOS设备降低分辨率
-              height: { ideal: 480 }
-            }
-          };
-        } else {
-          console.log("Step 3b: 使用标准配置");
-          constraints = {
-            audio: false,
-            video: {
-              facingMode: facingMode,
-              width: { ideal: 1280 },
-              height: { ideal: 720 }
-            }
-          };
-        }
-        
-        // 获取指定的摄像头流
-        console.log("Step 4: 请求摄像头流", constraints);
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        console.log("摄像头流获取成功!", stream.getVideoTracks());
-        
-        if (!videoRef.current) {
-          console.error("错误: 视频元素已丢失");
-          throw new Error("视频元素已丢失");
-        }
-        
-        // 应用视频流
-        videoRef.current.srcObject = stream;
-        console.log("Step 5: 已设置视频源");
-        
-        // 设置元数据加载事件
-        videoRef.current.onloadedmetadata = async () => {
-          console.log("Step 6: 视频元数据已加载");
-          
-          if (!videoRef.current) return;
-          
-          try {
-            // 直接播放视频
-            console.log("尝试播放视频...");
-            await videoRef.current.play();
-            console.log("视频播放成功!");
-          } catch (playError) {
-            console.error("自动播放失败:", playError);
-            
-            // iOS经常需要用户交互后才能播放
-            alert("请点击屏幕启用摄像头");
-            document.addEventListener('click', function playOnInteraction() {
-              if (videoRef.current) {
-                videoRef.current.play()
-                  .then(() => console.log("用户交互后播放成功"))
-                  .catch(e => console.error("用户交互后播放仍失败:", e));
-              }
-              document.removeEventListener('click', playOnInteraction);
-            }, { once: true });
-          }
-        };
-      } catch (primaryError) {
-        console.error("主摄像头配置失败:", primaryError);
-        
-        // 尝试极简配置
-        try {
-          console.log("Step 7: 尝试备用配置");
-          const fallbackConstraints = { 
-            video: true,
-            audio: false
-          };
-          
-          const stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
-          console.log("备用配置成功");
-          
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            
-            // iOS设备特殊处理
-            if (isIOSDevice) {
-              videoRef.current.setAttribute('playsinline', 'true');
-              videoRef.current.setAttribute('webkit-playsinline', 'true');
-              videoRef.current.muted = true;
-            }
-            
-            // 尝试播放
-            videoRef.current.onloadedmetadata = () => {
-              if (videoRef.current) {
-                videoRef.current.play()
-                  .then(() => console.log("备用视频播放成功"))
-                  .catch(e => {
-                    console.error("备用播放失败:", e);
-                    alert("请点击屏幕启用摄像头");
-                  });
-              }
-            };
-          }
-        } catch (finalError) {
-          console.error("所有摄像头尝试均失败:", finalError);
-          throw finalError;
-        }
-      }
+      // 创建文件预览
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
       
       toast({
-        title: "相机已开启",
-        description: "请对准收据拍照",
+        title: "收据已捕获",
+        description: "成功获取收据图像。",
       });
-    } catch (error) {
-      console.error("相机启动失败:", error);
-      toast({
-        variant: "destructive",
-        title: "相机访问失败",
-        description: "请确保已授予相机权限，或尝试上传已有照片",
-      });
-      setIsCameraActive(false);
     }
   };
-  
-  const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      const tracks = stream.getTracks();
-      
-      tracks.forEach(track => track.stop());
-      videoRef.current.srcObject = null;
-    }
-    
-    setIsCameraActive(false);
-  };
-  
-  const captureImage = () => {
-    if (!videoRef.current || !canvasRef.current) return;
-    
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    
-    // 设置Canvas尺寸与视频相同
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    
-    // 绘制视频帧到Canvas
-    const context = canvas.getContext('2d');
-    if (!context) return;
-    
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    
-    // 转换为图像URL
-    const imageUrl = canvas.toDataURL('image/jpeg');
-    setCapturedImage(imageUrl);
-    
-    // 停止相机
-    stopCamera();
-    
-    toast({
-      title: "拍照成功",
-      description: "收据已捕获",
-    });
-  };
-  
-  useEffect(() => {
-    // 组件卸载时停止相机
-    return () => {
-      stopCamera();
-    };
-  }, []);
   
   const resetForm = () => {
     setVendor("Office Depot");
@@ -338,7 +96,8 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
     setCategory("1");
     setIsBusinessExpense(true);
     setNotes("");
-    setCapturedImage(null);
+    setPhotoFile(null);
+    setPhotoPreview(null);
   };
   
   const handleSave = () => {
@@ -346,21 +105,21 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
     if (isNaN(amountValue) || amountValue <= 0) {
       toast({
         variant: "destructive",
-        title: "Invalid amount",
-        description: "Please enter a valid amount.",
+        title: "金额无效",
+        description: "请输入有效的金额。",
       });
       return;
     }
     
     const newExpense: InsertExpense = {
-      userId: 1, // For demo purposes
+      userId: 1, // Demo用户ID
       amount: amountValue,
       vendor,
       date: new Date(),
       categoryId: parseInt(category),
       notes,
       isBusinessExpense,
-      isTaxDeductible: isBusinessExpense, // Assume business expenses are deductible
+      isTaxDeductible: isBusinessExpense, // 假设业务支出可抵税
       deductiblePercentage: isBusinessExpense ? 100 : 0
     };
     
@@ -372,113 +131,50 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
     
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end overflow-y-auto">
-        {/* iOS摄像头权限申请对话框 */}
-        <AlertDialog 
-          open={showIOSPermissionDialog} 
-          onOpenChange={(open) => !open && setShowIOSPermissionDialog(false)}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle className="flex items-center text-lg">
-                <Camera className="mr-2 h-5 w-5 text-primary" /> 相机权限请求
-              </AlertDialogTitle>
-              <AlertDialogDescription className="space-y-4">
-                <p>
-                  DeduX需要访问您的相机以拍摄收据照片。请在接下来的系统提示中点击"允许"。
-                </p>
-                <div className="rounded-lg border border-muted bg-muted/50 p-3 text-sm">
-                  <div className="flex flex-col space-y-3">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-yellow-500" />
-                      <span className="font-semibold text-sm">iOS需要特别授权</span>
-                    </div>
-                    <div className="ml-6 text-xs space-y-2">
-                      <p>1. 点击下面的"授予权限"按钮</p>
-                      <p>2. 在弹出的系统提示中选择"允许"</p>
-                      <p>3. 如已拒绝，请在设置中手动开启相机权限</p>
-                    </div>
-                  </div>
-                </div>
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>取消</AlertDialogCancel>
-              <AlertDialogAction onClick={initializeCamera} className="bg-primary text-white">
-                授予权限 <ArrowRight className="ml-1 h-4 w-4" />
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
         <div className="bg-white rounded-t-xl w-full p-5 slide-in-bottom max-h-[90vh] overflow-y-auto">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">Capture Receipt</h3>
-            <button 
-              onClick={() => {
-                stopCamera();
-                onClose();
-              }} 
-              className="text-neutral-500 hover:text-neutral-700"
-            >
+            <h3 className="text-lg font-semibold">拍摄收据</h3>
+            <button onClick={onClose} className="text-neutral-500 hover:text-neutral-700">
               <X className="h-5 w-5" />
             </button>
           </div>
           
           <div className="mb-4 border-2 border-dashed border-neutral-300 rounded-lg p-4 flex flex-col items-center justify-center">
-            {isCameraActive ? (
-              <div className="relative w-full h-64 mb-3">
-                <video 
-                  ref={videoRef} 
-                  className="w-full h-full object-cover rounded-lg"
-                  autoPlay 
-                  playsInline
-                  muted 
-                />
-                <canvas ref={canvasRef} className="hidden" />
-                <button 
-                  onClick={() => {
-                    stopCamera();
-                    setFacingMode(facingMode === "environment" ? "user" : "environment");
-                    setTimeout(() => {
-                      startCamera();
-                    }, 300);
-                  }}
-                  className="absolute bottom-2 right-2 bg-white bg-opacity-75 p-2 rounded-full"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"></path>
-                    <rect x="16" y="2" width="6" height="6" rx="1"></rect>
-                    <path d="m21 15-3-3 3-3"></path>
-                    <path d="m8 12 4-4 4 4"></path>
-                    <path d="m8 12 4 4 4-4"></path>
-                  </svg>
-                </button>
-              </div>
-            ) : capturedImage ? (
+            {photoPreview ? (
               <img 
-                src={capturedImage} 
-                alt="Captured receipt" 
+                src={photoPreview} 
+                alt="收据图片" 
                 className="max-w-xs mb-3 rounded-lg" 
               />
             ) : (
               <img 
                 src="https://images.unsplash.com/photo-1567301861581-f135cd5ff9de?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80" 
-                alt="Receipt placeholder" 
+                alt="收据示例" 
                 className="max-w-xs mb-3 rounded-lg" 
               />
             )}
             
             <div className="flex space-x-2">
-              {isCameraActive ? (
-                <Button onClick={captureImage}>
-                  <Camera className="h-4 w-4 mr-1" /> 拍照
-                </Button>
-              ) : (
-                <Button onClick={startCamera}>
-                  <Camera className="h-4 w-4 mr-1" /> {capturedImage ? "重新拍照" : "拍摄收据"}
-                </Button>
-              )}
-              <Button variant="outline">
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+              />
+              <Button onClick={handleCameraCapture}>
+                <Camera className="h-4 w-4 mr-1" /> {photoPreview ? "重新拍照" : "拍摄收据"}
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  if (fileInputRef.current) {
+                    fileInputRef.current.removeAttribute('capture');
+                    fileInputRef.current.click();
+                  }
+                }}
+              >
                 <Upload className="h-4 w-4 mr-1" /> 上传图片
               </Button>
             </div>
@@ -486,7 +182,7 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
           
           <div className="space-y-4 mb-4">
             <div>
-              <Label className="block text-sm font-medium text-neutral-700 mb-1">Vendor</Label>
+              <Label className="block text-sm font-medium text-neutral-700 mb-1">商家</Label>
               <div className="flex">
                 <div className="flex-1 border border-neutral-300 p-2 rounded-lg">
                   <div className="flex items-center">
@@ -498,7 +194,7 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
                 </div>
                 <button 
                   className="ml-2 border border-neutral-300 px-3 rounded-lg"
-                  onClick={() => setVendor(prompt("Enter vendor name", vendor) || vendor)}
+                  onClick={() => setVendor(prompt("输入商家名称", vendor) || vendor)}
                 >
                   <Edit className="h-4 w-4" />
                 </button>
@@ -507,7 +203,7 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label className="block text-sm font-medium text-neutral-700 mb-1">Amount</Label>
+                <Label className="block text-sm font-medium text-neutral-700 mb-1">金额</Label>
                 <input 
                   type="text"
                   value={amount} 
@@ -516,35 +212,35 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
                 />
               </div>
               <div>
-                <Label className="block text-sm font-medium text-neutral-700 mb-1">Date</Label>
+                <Label className="block text-sm font-medium text-neutral-700 mb-1">日期</Label>
                 <div className="border border-neutral-300 p-3 rounded-lg">
-                  <span>Today, {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                  <span>今天, {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                 </div>
               </div>
             </div>
             
             <div>
-              <Label className="block text-sm font-medium text-neutral-700 mb-1">Category</Label>
+              <Label className="block text-sm font-medium text-neutral-700 mb-1">分类</Label>
               <Select defaultValue={category} onValueChange={setCategory}>
                 <SelectTrigger className="w-full border border-neutral-300 p-3 rounded-lg bg-white">
-                  <SelectValue placeholder="Select category" />
+                  <SelectValue placeholder="选择类别" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">Office Supplies</SelectItem>
-                  <SelectItem value="2">Software</SelectItem>
-                  <SelectItem value="3">Travel</SelectItem>
-                  <SelectItem value="4">Meals</SelectItem>
-                  <SelectItem value="5">Marketing</SelectItem>
+                  <SelectItem value="1">办公用品</SelectItem>
+                  <SelectItem value="2">软件</SelectItem>
+                  <SelectItem value="3">差旅</SelectItem>
+                  <SelectItem value="4">餐饮</SelectItem>
+                  <SelectItem value="5">市场营销</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             
             <div>
               <Label className="flex items-center justify-between text-sm font-medium text-neutral-700 mb-1">
-                <span>Expense Type</span>
+                <span>支出类型</span>
                 <div className="flex items-center bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full">
                   <CheckCircle className="h-3 w-3 mr-1" />
-                  <span>Looks deductible!</span>
+                  <span>可抵税!</span>
                 </div>
               </Label>
               <div className="flex">
@@ -552,23 +248,23 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
                   className={`flex-1 ${isBusinessExpense ? 'bg-primary-50 border-primary-200 text-primary-700' : 'bg-white border-neutral-300 text-neutral-500'} border p-3 rounded-l-lg font-medium`}
                   onClick={() => setIsBusinessExpense(true)}
                 >
-                  <Briefcase className="h-4 w-4 inline mr-1" /> Business
+                  <Briefcase className="h-4 w-4 inline mr-1" /> 业务
                 </button>
                 <button 
                   className={`flex-1 ${!isBusinessExpense ? 'bg-primary-50 border-primary-200 text-primary-700' : 'bg-white border-neutral-300 text-neutral-500'} border p-3 rounded-r-lg font-medium`}
                   onClick={() => setIsBusinessExpense(false)}
                 >
-                  <User className="h-4 w-4 inline mr-1" /> Personal
+                  <User className="h-4 w-4 inline mr-1" /> 个人
                 </button>
               </div>
             </div>
             
             <div>
-              <Label className="block text-sm font-medium text-neutral-700 mb-1">Notes (Optional)</Label>
+              <Label className="block text-sm font-medium text-neutral-700 mb-1">备注（可选）</Label>
               <Textarea 
                 className="w-full border border-neutral-300 p-3 rounded-lg" 
                 rows={2} 
-                placeholder="Add details about this expense..."
+                placeholder="添加有关此支出的详细信息..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
@@ -580,117 +276,60 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
             disabled={createExpenseMutation.isPending}
             onClick={handleSave}
           >
-            Save Expense
+            保存支出
           </Button>
         </div>
       </div>
     );
   }
   
-  // Desktop version
+  // 桌面版本
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      {/* iOS摄像头权限申请对话框 */}
-      <AlertDialog 
-        open={showIOSPermissionDialog} 
-        onOpenChange={(open) => !open && setShowIOSPermissionDialog(false)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center text-lg">
-              <Camera className="mr-2 h-5 w-5 text-primary" /> Camera Permission Required
-            </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-4">
-              <p>
-                DeduX needs access to your camera to take photos of receipts. Please click "Allow" in the system prompt that appears.
-              </p>
-              <div className="rounded-lg border border-muted bg-muted/50 p-3 text-sm">
-                <div className="flex flex-col space-y-3">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-yellow-500" />
-                    <span className="font-semibold text-sm">iOS Requires Special Permission</span>
-                  </div>
-                  <div className="ml-6 text-xs space-y-2">
-                    <p>1. Click the "Grant Permission" button below</p>
-                    <p>2. Select "Allow" in the system prompt</p>
-                    <p>3. If previously denied, enable camera access in Settings</p>
-                  </div>
-                </div>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={initializeCamera} className="bg-primary text-white">
-              Grant Permission <ArrowRight className="ml-1 h-4 w-4" />
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Expense</DialogTitle>
+          <DialogTitle>添加新支出</DialogTitle>
         </DialogHeader>
         
         <div className="grid grid-cols-5 gap-6">
           <div className="col-span-2 flex flex-col items-center justify-start">
             <div className="w-full aspect-[4/3] rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center overflow-hidden mb-3">
-              {isCameraActive ? (
-                <div className="relative w-full h-full">
-                  <video 
-                    ref={videoRef} 
-                    className="w-full h-full object-cover"
-                    autoPlay
-                    playsInline
-                    muted
-                  />
-                  <canvas ref={canvasRef} className="hidden" />
-                  <button 
-                    onClick={() => {
-                      stopCamera();
-                      setFacingMode(facingMode === "environment" ? "user" : "environment");
-                      setTimeout(() => {
-                        startCamera();
-                      }, 300);
-                    }}
-                    className="absolute bottom-2 right-2 bg-white bg-opacity-75 p-2 rounded-full"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"></path>
-                      <rect x="16" y="2" width="6" height="6" rx="1"></rect>
-                      <path d="m21 15-3-3 3-3"></path>
-                      <path d="m8 12 4-4 4 4"></path>
-                      <path d="m8 12 4 4 4-4"></path>
-                    </svg>
-                  </button>
-                </div>
-              ) : capturedImage ? (
+              {photoPreview ? (
                 <img 
-                  src={capturedImage} 
-                  alt="Captured receipt" 
+                  src={photoPreview} 
+                  alt="收据图片" 
                   className="w-full h-full object-contain"
                 />
               ) : (
                 <div className="p-6 text-center">
                   <Camera className="mx-auto h-12 w-12 text-gray-400" />
-                  <p className="mt-2 text-sm text-gray-500">Capture or upload a receipt image</p>
+                  <p className="mt-2 text-sm text-gray-500">拍摄或上传收据图片</p>
                 </div>
               )}
             </div>
             
             <div className="flex flex-col gap-2 w-full">
-              {isCameraActive ? (
-                <Button onClick={captureImage} className="w-full">
-                  <Camera className="h-4 w-4 mr-2" /> Take Photo
-                </Button>
-              ) : (
-                <Button onClick={startCamera} className="w-full">
-                  <Camera className="h-4 w-4 mr-2" /> {capturedImage ? "Retake Photo" : "Capture Receipt"}
-                </Button>
-              )}
-              <Button variant="outline" className="w-full">
-                <Upload className="h-4 w-4 mr-2" /> Upload Image
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+              />
+              <Button onClick={handleCameraCapture} className="w-full">
+                <Camera className="h-4 w-4 mr-2" /> {photoPreview ? "重新拍照" : "拍摄收据"}
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => {
+                  if (fileInputRef.current) {
+                    fileInputRef.current.removeAttribute('capture');
+                    fileInputRef.current.click();
+                  }
+                }}
+              >
+                <Upload className="h-4 w-4 mr-2" /> 上传图片
               </Button>
             </div>
           </div>
@@ -698,7 +337,7 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
           <div className="col-span-3 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
-                <Label htmlFor="vendor">Vendor</Label>
+                <Label htmlFor="vendor">商家</Label>
                 <input
                   id="vendor"
                   className="w-full p-2 border border-gray-300 rounded-md mt-1"
@@ -708,7 +347,7 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
               </div>
               
               <div>
-                <Label htmlFor="amount">Amount</Label>
+                <Label htmlFor="amount">金额</Label>
                 <input
                   id="amount"
                   className="w-full p-2 border border-gray-300 rounded-md mt-1"
@@ -718,7 +357,7 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
               </div>
               
               <div>
-                <Label htmlFor="date">Date</Label>
+                <Label htmlFor="date">日期</Label>
                 <input
                   id="date"
                   className="w-full p-2 border border-gray-300 rounded-md mt-1"
@@ -728,46 +367,46 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
               </div>
               
               <div>
-                <Label htmlFor="category">Category</Label>
+                <Label htmlFor="category">分类</Label>
                 <Select defaultValue={category} onValueChange={setCategory}>
                   <SelectTrigger className="w-full p-2 border border-gray-300 rounded-md mt-1 bg-white">
-                    <SelectValue placeholder="Select category" />
+                    <SelectValue placeholder="选择类别" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1">Office Supplies</SelectItem>
-                    <SelectItem value="2">Software</SelectItem>
-                    <SelectItem value="3">Travel</SelectItem>
-                    <SelectItem value="4">Meals</SelectItem>
-                    <SelectItem value="5">Marketing</SelectItem>
+                    <SelectItem value="1">办公用品</SelectItem>
+                    <SelectItem value="2">软件</SelectItem>
+                    <SelectItem value="3">差旅</SelectItem>
+                    <SelectItem value="4">餐饮</SelectItem>
+                    <SelectItem value="5">市场营销</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               
               <div>
-                <Label htmlFor="expense-type">Expense Type</Label>
+                <Label htmlFor="expense-type">支出类型</Label>
                 <div className="flex mt-1 rounded-md overflow-hidden">
                   <button 
                     className={`flex-1 ${isBusinessExpense ? 'bg-primary-50 border-primary-200 text-primary-700' : 'bg-white border-gray-300 text-gray-500'} border p-2 font-medium border-r-0`}
                     onClick={() => setIsBusinessExpense(true)}
                   >
-                    <Briefcase className="h-4 w-4 inline mr-1" /> Business
+                    <Briefcase className="h-4 w-4 inline mr-1" /> 业务
                   </button>
                   <button 
                     className={`flex-1 ${!isBusinessExpense ? 'bg-primary-50 border-primary-200 text-primary-700' : 'bg-white border-gray-300 text-gray-500'} border p-2 font-medium`}
                     onClick={() => setIsBusinessExpense(false)}
                   >
-                    <User className="h-4 w-4 inline mr-1" /> Personal
+                    <User className="h-4 w-4 inline mr-1" /> 个人
                   </button>
                 </div>
               </div>
               
               <div className="col-span-2">
-                <Label htmlFor="notes">Notes (Optional)</Label>
+                <Label htmlFor="notes">备注（可选）</Label>
                 <Textarea 
                   id="notes"
                   className="w-full p-2 border border-gray-300 rounded-md mt-1" 
                   rows={4} 
-                  placeholder="Add details about this expense..."
+                  placeholder="添加有关此支出的详细信息..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                 />
@@ -776,13 +415,13 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
             
             <div className="pt-2 flex justify-end space-x-2">
               <Button variant="outline" onClick={onClose}>
-                Cancel
+                取消
               </Button>
               <Button
                 disabled={createExpenseMutation.isPending}
                 onClick={handleSave}
               >
-                Save Expense
+                保存支出
               </Button>
             </div>
           </div>
