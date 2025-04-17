@@ -21,17 +21,13 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
       
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 flex justify-around items-center py-2 z-10">
-        <Link href="/">
-          <a className={`flex flex-col items-center justify-center p-2 ${location === '/' ? 'text-primary' : 'text-neutral-400'}`}>
-            <Home className="h-5 w-5" />
-            <span className="text-xs mt-1">Home</span>
-          </a>
+        <Link href="/" className={`flex flex-col items-center justify-center p-2 ${location === '/' ? 'text-primary' : 'text-neutral-400'}`}>
+          <Home className="h-5 w-5" />
+          <span className="text-xs mt-1">Home</span>
         </Link>
-        <Link href="/expenses">
-          <a className={`flex flex-col items-center justify-center p-2 ${location === '/expenses' ? 'text-primary' : 'text-neutral-400'}`}>
-            <Receipt className="h-5 w-5" />
-            <span className="text-xs mt-1">Expenses</span>
-          </a>
+        <Link href="/expenses" className={`flex flex-col items-center justify-center p-2 ${location === '/expenses' ? 'text-primary' : 'text-neutral-400'}`}>
+          <Receipt className="h-5 w-5" />
+          <span className="text-xs mt-1">Expenses</span>
         </Link>
         <button 
           onClick={() => setShowReceiptModal(true)}
@@ -41,17 +37,13 @@ export default function MobileLayout({ children }: MobileLayoutProps) {
             <Plus className="h-5 w-5" />
           </div>
         </button>
-        <Link href="/reports">
-          <a className={`flex flex-col items-center justify-center p-2 ${location === '/reports' ? 'text-primary' : 'text-neutral-400'}`}>
-            <FileText className="h-5 w-5" />
-            <span className="text-xs mt-1">Reports</span>
-          </a>
+        <Link href="/reports" className={`flex flex-col items-center justify-center p-2 ${location === '/reports' ? 'text-primary' : 'text-neutral-400'}`}>
+          <FileText className="h-5 w-5" />
+          <span className="text-xs mt-1">Reports</span>
         </Link>
-        <Link href="/settings">
-          <a className={`flex flex-col items-center justify-center p-2 ${location === '/settings' ? 'text-primary' : 'text-neutral-400'}`}>
-            <Settings className="h-5 w-5" />
-            <span className="text-xs mt-1">Settings</span>
-          </a>
+        <Link href="/settings" className={`flex flex-col items-center justify-center p-2 ${location === '/settings' ? 'text-primary' : 'text-neutral-400'}`}>
+          <Settings className="h-5 w-5" />
+          <span className="text-xs mt-1">Settings</span>
         </Link>
       </nav>
       

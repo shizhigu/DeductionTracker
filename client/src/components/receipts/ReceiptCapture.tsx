@@ -70,36 +70,73 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
   // Camera functionality
   const startCamera = async () => {
     try {
+      // 设置状态并提前显示UI元素
       setIsCameraActive(true);
       
+      console.log("摄像头启动流程开始...");
+      
+      // 基本检查
       if (!videoRef.current) {
-        console.error("视频元素未找到");
-        return;
+        console.error("错误: 视频元素未找到");
+        throw new Error("视频元素未找到");
       }
       
-      // 检查navigator.mediaDevices是否可用
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error("错误: 浏览器不支持摄像头API");
         throw new Error("浏览器不支持getUserMedia API");
       }
+
+      // 检测并记录设备环境
+      const isIOSDevice = isIOS();
+      console.log(`设备环境: iOS=${isIOSDevice}, Safari=${/Safari/.test(navigator.userAgent)}, 请求方向=${facingMode}`);
       
-      console.log(`设备检测: iOS=${isIOS()}, 当前设置facingMode=${facingMode}`);
-      
-      // 为iOS设备优化摄像头访问配置
-      try {
-        // 使用更适合iOS的配置
-        let constraints;
+      // 确保视频元素有正确的属性（特别是iOS）
+      if (videoRef.current) {
+        videoRef.current.setAttribute('autoplay', 'true');
+        videoRef.current.setAttribute('muted', 'true');
+        videoRef.current.setAttribute('playsinline', 'true');
+        videoRef.current.muted = true;
         
-        if (isIOS()) {
-          // iOS设备特殊处理
+        if (isIOSDevice) {
+          videoRef.current.setAttribute('controls', 'false');
+          videoRef.current.setAttribute('webkit-playsinline', 'true');
+        }
+      }
+      
+      try {
+        console.log("Step 1: 尝试获取设备列表");
+        // 先请求设备访问权限（可能会触发权限提示）
+        await navigator.mediaDevices.getUserMedia({ audio: false, video: true })
+          .then(stream => {
+            // 立即关闭这个初始流
+            stream.getTracks().forEach(track => track.stop());
+            console.log("已获得初始权限");
+          })
+          .catch(err => {
+            console.error("初始权限请求失败:", err.name, err.message);
+            throw err;
+          });
+          
+        // 列举设备（调试用）
+        console.log("Step 2: 枚举视频设备");
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        console.log(`发现${videoDevices.length}个视频设备:`, videoDevices);
+        
+        // 构建约束条件
+        let constraints;
+        if (isIOSDevice) {
+          console.log("Step 3a: 使用iOS优化配置");
           constraints = {
             audio: false,
             video: {
-              facingMode: facingMode
+              facingMode: facingMode,
+              width: { ideal: 640 },  // iOS设备降低分辨率
+              height: { ideal: 480 }
             }
           };
-          console.log("使用iOS优化配置");
         } else {
-          // 非iOS设备
+          console.log("Step 3b: 使用标准配置");
           constraints = {
             audio: false,
             video: {
@@ -108,87 +145,87 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
               height: { ideal: 720 }
             }
           };
-          console.log("使用标准配置");
         }
         
-        // 列举可用设备（调试用）
-        try {
-          const devices = await navigator.mediaDevices.enumerateDevices();
-          const videoDevices = devices.filter(device => device.kind === 'videoinput');
-          console.log('可用视频设备:', videoDevices.length, videoDevices);
-        } catch (e) {
-          console.log('无法枚举设备:', e);
-        }
-        
-        // 请求访问摄像头
-        console.log("请求摄像头权限...");
+        // 获取指定的摄像头流
+        console.log("Step 4: 请求摄像头流", constraints);
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        console.log("摄像头流获取成功!", stream.getVideoTracks());
         
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          console.log("成功获取摄像头流!");
-          
-          // 添加视频加载事件处理
-          videoRef.current.onloadedmetadata = () => {
-            console.log("视频元数据已加载");
-            if (videoRef.current) {
-              // 对于iOS设备，添加特殊处理
-              if (isIOS()) {
-                videoRef.current.setAttribute('playsinline', 'true');
-                videoRef.current.setAttribute('webkit-playsinline', 'true');
-              }
-              
-              // 播放视频
-              videoRef.current.play().then(() => {
-                console.log("视频播放成功");
-              }).catch(e => {
-                console.error("视频播放失败:", e);
-                // 尝试自动播放策略
-                const playPromise = videoRef.current?.play();
-                if (playPromise) {
-                  playPromise.catch(() => {
-                    // 用户交互后再尝试播放
-                    document.addEventListener('touchstart', function playOnTouch() {
-                      if (videoRef.current) videoRef.current.play();
-                      document.removeEventListener('touchstart', playOnTouch);
-                    }, { once: true });
-                  });
-                }
-              });
-            }
-          };
+        if (!videoRef.current) {
+          console.error("错误: 视频元素已丢失");
+          throw new Error("视频元素已丢失");
         }
-      } catch (err) {
-        console.error("指定摄像头访问失败:", err);
         
-        // 尝试使用简单配置
+        // 应用视频流
+        videoRef.current.srcObject = stream;
+        console.log("Step 5: 已设置视频源");
+        
+        // 设置元数据加载事件
+        videoRef.current.onloadedmetadata = async () => {
+          console.log("Step 6: 视频元数据已加载");
+          
+          if (!videoRef.current) return;
+          
+          try {
+            // 直接播放视频
+            console.log("尝试播放视频...");
+            await videoRef.current.play();
+            console.log("视频播放成功!");
+          } catch (playError) {
+            console.error("自动播放失败:", playError);
+            
+            // iOS经常需要用户交互后才能播放
+            alert("请点击屏幕启用摄像头");
+            document.addEventListener('click', function playOnInteraction() {
+              if (videoRef.current) {
+                videoRef.current.play()
+                  .then(() => console.log("用户交互后播放成功"))
+                  .catch(e => console.error("用户交互后播放仍失败:", e));
+              }
+              document.removeEventListener('click', playOnInteraction);
+            }, { once: true });
+          }
+        };
+      } catch (primaryError) {
+        console.error("主摄像头配置失败:", primaryError);
+        
+        // 尝试极简配置
         try {
+          console.log("Step 7: 尝试备用配置");
           const fallbackConstraints = { 
             video: true,
             audio: false
           };
           
-          console.log("尝试备用配置...");
           const stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+          console.log("备用配置成功");
           
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
-            console.log("成功获取备用摄像头流");
             
-            // 确保视频加载并播放
+            // iOS设备特殊处理
+            if (isIOSDevice) {
+              videoRef.current.setAttribute('playsinline', 'true');
+              videoRef.current.setAttribute('webkit-playsinline', 'true');
+              videoRef.current.muted = true;
+            }
+            
+            // 尝试播放
             videoRef.current.onloadedmetadata = () => {
               if (videoRef.current) {
-                if (isIOS()) {
-                  videoRef.current.setAttribute('playsinline', 'true');
-                  videoRef.current.setAttribute('webkit-playsinline', 'true');
-                }
-                videoRef.current.play().catch(e => console.error("备用视频播放失败:", e));
+                videoRef.current.play()
+                  .then(() => console.log("备用视频播放成功"))
+                  .catch(e => {
+                    console.error("备用播放失败:", e);
+                    alert("请点击屏幕启用摄像头");
+                  });
               }
             };
           }
-        } catch (finalErr) {
-          console.error("备用摄像头也失败:", finalErr);
-          throw finalErr; 
+        } catch (finalError) {
+          console.error("所有摄像头尝试均失败:", finalError);
+          throw finalError;
         }
       }
       

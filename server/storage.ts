@@ -334,4 +334,214 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// DatabaseStorage 实现
+export class DatabaseStorage implements IStorage {
+  // 用户方法
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db.insert(users).values(insertUser).returning();
+    return user;
+  }
+
+  // 分类方法
+  async getCategories(): Promise<Category[]> {
+    return await db.select().from(categories);
+  }
+
+  async getCategoryById(id: number): Promise<Category | undefined> {
+    const [category] = await db.select().from(categories).where(eq(categories.id, id));
+    return category || undefined;
+  }
+
+  async createCategory(category: InsertCategory): Promise<Category> {
+    const [newCategory] = await db.insert(categories).values(category).returning();
+    return newCategory;
+  }
+
+  // 支出方法
+  async getExpenses(userId: number): Promise<Expense[]> {
+    return await db.select().from(expenses).where(eq(expenses.userId, userId));
+  }
+
+  async getExpenseById(id: number): Promise<Expense | undefined> {
+    const [expense] = await db.select().from(expenses).where(eq(expenses.id, id));
+    return expense || undefined;
+  }
+
+  async getExpensesByUserId(userId: number): Promise<Expense[]> {
+    return await db.select().from(expenses).where(eq(expenses.userId, userId));
+  }
+
+  async getExpensesByCategory(userId: number, categoryId: number): Promise<Expense[]> {
+    return await db.select().from(expenses)
+      .where(and(
+        eq(expenses.userId, userId),
+        eq(expenses.categoryId, categoryId)
+      ));
+  }
+
+  async getBusinessExpenses(userId: number): Promise<Expense[]> {
+    return await db.select().from(expenses)
+      .where(and(
+        eq(expenses.userId, userId),
+        eq(expenses.isBusinessExpense, true)
+      ));
+  }
+
+  async getTaxDeductibleExpenses(userId: number): Promise<Expense[]> {
+    return await db.select().from(expenses)
+      .where(and(
+        eq(expenses.userId, userId),
+        eq(expenses.isTaxDeductible, true)
+      ));
+  }
+
+  async createExpense(expense: InsertExpense): Promise<Expense> {
+    const [newExpense] = await db.insert(expenses).values(expense).returning();
+    return newExpense;
+  }
+
+  async updateExpense(id: number, expenseUpdate: Partial<InsertExpense>): Promise<Expense | undefined> {
+    const [updatedExpense] = await db.update(expenses)
+      .set(expenseUpdate)
+      .where(eq(expenses.id, id))
+      .returning();
+    return updatedExpense || undefined;
+  }
+
+  async deleteExpense(id: number): Promise<boolean> {
+    const result = await db.delete(expenses).where(eq(expenses.id, id));
+    return result.count > 0;
+  }
+
+  // 报告方法
+  async getReports(userId: number): Promise<Report[]> {
+    return await db.select().from(reports).where(eq(reports.userId, userId));
+  }
+
+  async getReportById(id: number): Promise<Report | undefined> {
+    const [report] = await db.select().from(reports).where(eq(reports.id, id));
+    return report || undefined;
+  }
+
+  async createReport(report: InsertReport): Promise<Report> {
+    const [newReport] = await db.insert(reports).values(report).returning();
+    return newReport;
+  }
+
+  // 汇总方法
+  async getTodayTotal(userId: number): Promise<number> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const result = await db.select({
+      total: sql<number>`sum(${expenses.amount})`
+    })
+    .from(expenses)
+    .where(and(
+      eq(expenses.userId, userId),
+      gte(expenses.date, today)
+    ));
+    
+    return result[0]?.total || 0;
+  }
+
+  async getMonthlyDeductibleTotal(userId: number): Promise<number> {
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    const result = await db.select({
+      total: sql<number>`sum(${expenses.amount} * ${expenses.deductiblePercentage} / 100)`
+    })
+    .from(expenses)
+    .where(and(
+      eq(expenses.userId, userId),
+      eq(expenses.isTaxDeductible, true),
+      gte(expenses.date, firstDayOfMonth)
+    ));
+    
+    return result[0]?.total || 0;
+  }
+
+  async getTaxSavings(userId: number): Promise<number> {
+    const taxRate = 0.21; // 假设21%的税率
+    
+    const result = await db.select({
+      total: sql<number>`sum(${expenses.amount} * ${expenses.deductiblePercentage} / 100 * ${taxRate})`
+    })
+    .from(expenses)
+    .where(and(
+      eq(expenses.userId, userId),
+      eq(expenses.isTaxDeductible, true)
+    ));
+    
+    return result[0]?.total || 0;
+  }
+
+  async getCategoryBreakdown(userId: number, businessOnly: boolean): Promise<{categoryId: number, categoryName: string, percentage: number}[]> {
+    // 首先获取总金额
+    const totalResult = await db.select({
+      total: sql<number>`sum(${expenses.amount})`
+    })
+    .from(expenses)
+    .where(
+      businessOnly 
+        ? and(eq(expenses.userId, userId), eq(expenses.isBusinessExpense, true))
+        : eq(expenses.userId, userId)
+    );
+    
+    const total = totalResult[0]?.total || 0;
+    
+    if (total === 0) {
+      return [];
+    }
+    
+    // 获取每个分类的总额和百分比
+    const query = db.select({
+      categoryId: expenses.categoryId,
+      categoryAmount: sql<number>`sum(${expenses.amount})`
+    })
+    .from(expenses)
+    .where(
+      businessOnly 
+        ? and(eq(expenses.userId, userId), eq(expenses.isBusinessExpense, true))
+        : eq(expenses.userId, userId)
+    )
+    .groupBy(expenses.categoryId);
+    
+    const categoryAmounts = await query;
+    
+    // 获取分类名称
+    const categoryIds = categoryAmounts.map(item => item.categoryId).filter(id => id !== null) as number[];
+    const categoryData = categoryIds.length > 0
+      ? await db.select().from(categories).where(inArray(categories.id, categoryIds))
+      : [];
+    
+    // 转换数据格式
+    return categoryAmounts.map(item => {
+      const category = categoryData.find(c => c.id === item.categoryId);
+      const percentage = (item.categoryAmount / total) * 100;
+      
+      return {
+        categoryId: item.categoryId || 0,
+        categoryName: category?.name || 'Uncategorized',
+        percentage: Math.round(percentage * 100) / 100
+      };
+    });
+  }
+}
+
+// 使用数据库存储
+import { db } from './db';
+import { eq, and, gte, sql, inArray } from 'drizzle-orm';
+
+export const storage = new DatabaseStorage();
