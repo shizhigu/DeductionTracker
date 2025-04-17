@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import React, { useEffect, useState } from "react"
+import { isMobile } from 'react-device-detect'
 import { 
   DollarSign,
   TrendingUp,
@@ -11,30 +12,52 @@ import {
   FileText,
   Plus,
   ArrowUpRight,
-  BarChart3,
-  Clock,
   ArrowRight,
   Receipt,
   CircleDollarSign,
-  MoreHorizontal,
   Filter,
-  ShoppingBag,
-  Book,
-  CheckCircle,
+  ChevronDown,
+  Clock,
   PiggyBank,
-  Layers,
-  Landmark,
-  Sparkles
+  BookOpen,
+  UserCheck,
+  Wallet,
+  CalendarCheck,
+  Share2,
+  Sparkles,
+  CreditCard as CreditCardIcon
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { useUserStore } from "@/store/use-user-store"
 import { formatCurrency, formatReadableDate } from "@/lib/utils"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts'
+import { ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, Legend, BarChart, Bar } from 'recharts'
 
-// Interfaces
+// Material UI components for enhanced UI
+import Box from '@mui/material/Box'
+import Grid from '@mui/material/Grid'
+import Paper from '@mui/material/Paper'
+import Typography from '@mui/material/Typography'
+import Stack from '@mui/material/Stack'
+import Chip from '@mui/material/Chip'
+import IconButton from '@mui/material/IconButton'
+import Fab from '@mui/material/Fab'
+import Tab from '@mui/material/Tab'
+import Tabs from '@mui/material/Tabs'
+import LinearProgress from '@mui/material/LinearProgress'
+import List from '@mui/material/List'
+import ListItem from '@mui/material/ListItem'
+import ListItemText from '@mui/material/ListItemText'
+import ListItemAvatar from '@mui/material/ListItemAvatar'
+import Avatar from '@mui/material/Avatar'
+import Divider from '@mui/material/Divider'
+import ButtonGroup from '@mui/material/ButtonGroup'
+import Menu from '@mui/material/Menu'
+import MenuItem from '@mui/material/MenuItem'
+
+// Type definitions
 interface Expense {
   id: number;
   userId: number;
@@ -55,11 +78,149 @@ interface CategoryBreakdown {
   amount?: number;
 }
 
+// Custom components
+const QuickAddFab = () => {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+  
+  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+  
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+  
+  return (
+    <>
+      <Box
+        sx={{
+          position: 'fixed',
+          bottom: { xs: 80, sm: 80, md: 30 },
+          right: 30,
+          zIndex: 10,
+          display: { xs: 'block', lg: 'block' }
+        }}
+      >
+        <Fab 
+          color="primary" 
+          aria-label="add"
+          onClick={handleClick}
+          sx={{ 
+            boxShadow: '0 4px 14px 0 rgba(0,118,255,0.39)',
+          }}
+        >
+          <Plus />
+        </Fab>
+      </Box>
+      
+      <Menu
+        anchorEl={anchorEl}
+        open={open}
+        onClose={handleClose}
+        anchorOrigin={{
+          vertical: 'top',
+          horizontal: 'center',
+        }}
+        transformOrigin={{
+          vertical: 'bottom',
+          horizontal: 'center',
+        }}
+      >
+        <MenuItem onClick={handleClose} sx={{ minWidth: 150 }}>
+          <Camera className="h-4 w-4 mr-2" /> Scan Receipt
+        </MenuItem>
+        <MenuItem onClick={handleClose}>
+          <Plus className="h-4 w-4 mr-2" /> Add Manually
+        </MenuItem>
+        <MenuItem onClick={handleClose}>
+          <Clock className="h-4 w-4 mr-2" /> Recurring Expense
+        </MenuItem>
+      </Menu>
+    </>
+  );
+};
+
+const ExpenseItem = ({ expense, category, icon }: { expense: Expense, category: string, icon: React.ReactNode }) => (
+  <Box 
+    component={Paper} 
+    elevation={0} 
+    sx={{ 
+      p: 1.5, 
+      mb: 1,
+      border: '1px solid',
+      borderColor: 'divider',
+      borderRadius: 2,
+      '&:hover': {
+        bgcolor: 'action.hover'
+      },
+      transition: 'all 0.2s'
+    }}
+  >
+    <Stack direction="row" alignItems="center" spacing={2}>
+      <Avatar 
+        sx={{ 
+          bgcolor: expense.isBusinessExpense ? 'primary.50' : 'grey.100',
+          color: expense.isBusinessExpense ? 'primary.main' : 'grey.700'
+        }}
+      >
+        {icon}
+      </Avatar>
+      
+      <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+        <Typography 
+          variant="subtitle2" 
+          noWrap
+          sx={{ fontWeight: 600 }}
+        >
+          {expense.vendor}
+        </Typography>
+        <Typography 
+          variant="caption" 
+          color="text.secondary" 
+          component="div"
+          sx={{ display: 'flex', alignItems: 'center' }}
+        >
+          {category}
+          <Box component="span" sx={{ mx: 0.5 }}>•</Box>
+          {formatReadableDate(expense.date)}
+        </Typography>
+      </Box>
+      
+      <Box sx={{ textAlign: 'right' }}>
+        <Typography 
+          variant="subtitle2" 
+          sx={{ 
+            fontWeight: 700,
+            color: expense.isBusinessExpense ? 'success.main' : 'text.primary' 
+          }}
+        >
+          {formatCurrency(expense.amount)}
+        </Typography>
+        <Chip
+          label={expense.isBusinessExpense ? "Business" : "Personal"}
+          size="small"
+          color={expense.isBusinessExpense ? "primary" : "default"}
+          variant={expense.isBusinessExpense ? "filled" : "outlined"}
+          sx={{ 
+            height: 20, 
+            fontSize: '0.65rem',
+            "& .MuiChip-label": { px: 1 }
+          }}
+        />
+      </Box>
+    </Stack>
+  </Box>
+);
+
 // Dashboard Component
 export default function DashboardPage() {
   const { user } = useUserStore()
   const { toast } = useToast()
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false)
+  const [tabValue, setTabValue] = useState(0)
+  const [chartPeriod, setChartPeriod] = useState('6m')
+  const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop')
   
   // Stats data
   const [todayTotal, setTodayTotal] = useState<number | null>(null)
@@ -72,13 +233,25 @@ export default function DashboardPage() {
 
   // Expense trend data (mocked for now)
   const expenseTrendData = [
-    { name: 'Jan', business: 2400, personal: 1300 },
-    { name: 'Feb', business: 1398, personal: 900 },
-    { name: 'Mar', business: 9800, personal: 1800 },
-    { name: 'Apr', business: 3908, personal: 2000 },
-    { name: 'May', business: 4800, personal: 1500 },
-    { name: 'Jun', business: 3800, personal: 1700 },
+    { name: 'Jan', business: 2400, personal: 1300, total: 3700 },
+    { name: 'Feb', business: 1398, personal: 900, total: 2298 },
+    { name: 'Mar', business: 9800, personal: 1800, total: 11600 },
+    { name: 'Apr', business: 3908, personal: 2000, total: 5908 },
+    { name: 'May', business: 4800, personal: 1500, total: 6300 },
+    { name: 'Jun', business: 3800, personal: 1700, total: 5500 },
   ];
+
+  // Initial setup
+  useEffect(() => {
+    setViewMode(window.innerWidth < 1024 || isMobile ? 'mobile' : 'desktop')
+    
+    const handleResize = () => {
+      setViewMode(window.innerWidth < 1024 || isMobile ? 'mobile' : 'desktop')
+    }
+    
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
 
   // Fetch dashboard data
   useEffect(() => {
@@ -115,7 +288,7 @@ export default function DashboardPage() {
         setCategoryBreakdown(breakdownData)
         setCategories(categoriesData)
         
-        // Get only the latest 5 expenses
+        // Get only the latest expenses
         setExpenses(expensesData.slice(0, 5))
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error)
@@ -132,11 +305,7 @@ export default function DashboardPage() {
     fetchDashboardData()
   }, [toast])
 
-  const handleAddExpense = () => {
-    setIsReceiptDialogOpen(true)
-  }
-
-  // Get category color
+  // Get category details
   const getCategoryColor = (categoryId: number | null) => {
     const colors = [
       { bg: "bg-gray-100", text: "text-gray-600", chartColor: "#94a3b8" },
@@ -153,7 +322,6 @@ export default function DashboardPage() {
     return colors[(categoryId % colors.length) || 0];
   }
 
-  // Get category name
   const getCategoryName = (categoryId: number | null) => {
     if (!categoryId) return "Uncategorized";
     
@@ -161,430 +329,1426 @@ export default function DashboardPage() {
     return category ? category.name : "Uncategorized";
   }
 
-  // Get category icon
   const getCategoryIcon = (categoryId: number | null) => {
     switch(categoryId) {
-      case 1: return <ShoppingBag className="h-5 w-5" />;
-      case 2: return <Layers className="h-5 w-5" />;
-      case 3: return <Landmark className="h-5 w-5" />;
-      case 4: return <CreditCard className="h-5 w-5" />;
-      case 5: return <Book className="h-5 w-5" />;
+      case 1: return <DollarSign className="h-5 w-5" />;
+      case 2: return <FileText className="h-5 w-5" />;
+      case 3: return <CreditCardIcon className="h-5 w-5" />;
+      case 4: return <Wallet className="h-5 w-5" />;
+      case 5: return <BookOpen className="h-5 w-5" />;
       default: return <Receipt className="h-5 w-5" />;
     }
   };
 
-  // Format date for display
-  const formatExpenseDate = (dateString: string) => {
-    return formatReadableDate(new Date(dateString));
-  };
-
-  // Enhance chart data with colors
+  // Chart data preparation
   const chartData = categoryBreakdown.map(category => ({
     ...category,
     color: getCategoryColor(category.categoryId).chartColor
   }));
 
-  // Calculate monthly goal progress
-  const monthlyGoalProgress = 65; // Mocked for now, calculate based on actual goal if available
+  // Handle tab change
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
+
+  // Monthly goal progress (mocked value)
+  const monthlyGoalProgress = 65;
 
   return (
     <div>
-      {/* Dashboard Header */}
-      <div className="mb-8">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
-              Welcome back, {user?.name?.split(' ')[0] || 'there'}!
-            </h1>
-            <p className="text-gray-500 mt-1">
-              {new Date().toLocaleDateString('en-US', { 
-                weekday: 'long',
-                month: 'long', 
-                day: 'numeric', 
-                year: 'numeric'
-              })}
-            </p>
-          </div>
-          
-          <div className="flex gap-3 mt-4 lg:mt-0">
-            <Button className="shadow-sm">
-              <Camera className="mr-2 h-4 w-4" /> 
-              Scan Receipt
-            </Button>
-            <Button variant="outline" className="shadow-sm">
-              <Plus className="mr-2 h-4 w-4" /> 
-              Add Expense
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Summary Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+      {/* Quick Add Floating Action Button - Mobile & Tablet */}
+      <QuickAddFab />
+      
+      {/* Welcome Header */}
+      <Box 
+        sx={{ 
+          mb: { xs: 3, md: 5 },
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          justifyContent: 'space-between',
+          alignItems: { xs: 'flex-start', md: 'center' },
+          gap: 2
+        }}
+      >
+        <Box>
+          <Typography 
+            variant="h4" 
+            component="h1" 
+            sx={{ 
+              fontWeight: 600,
+              fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' }
+            }}
+          >
+            Welcome back, {user?.name?.split(' ')[0] || 'there'}!
+          </Typography>
+          <Typography 
+            variant="body2" 
+            color="text.secondary"
+            sx={{ mt: 0.5 }}
+          >
+            {new Date().toLocaleDateString('en-US', { 
+              weekday: 'long',
+              month: 'long', 
+              day: 'numeric', 
+              year: 'numeric'
+            })}
+          </Typography>
+        </Box>
+        
+        {/* Hide these buttons on mobile - using FAB instead */}
+        <Stack 
+          direction="row" 
+          spacing={1.5}
+          sx={{ display: { xs: 'none', md: 'flex' } }}
+        >
+          <Button>
+            <Camera className="mr-2 h-4 w-4" /> Scan Receipt
+          </Button>
+          <Button variant="outline">
+            <Plus className="mr-2 h-4 w-4" /> Add Expense
+          </Button>
+        </Stack>
+      </Box>
+      
+      {/* Financial Overview Cards */}
+      <Grid container spacing={2} sx={{ mb: 4 }}>
         {/* Today's Spending */}
-        <Card className="overflow-hidden border-none shadow-md bg-gradient-to-br from-blue-50 to-blue-100">
-          <CardHeader className="pb-2">
-            <CardDescription className="text-blue-700 font-medium">Today's Spending</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-bold text-blue-900">
-                  {isLoading ? '—' : formatCurrency(todayTotal || 0)}
-                </div>
-                <div className="flex items-center mt-1 text-xs font-medium text-blue-700">
-                  <ArrowUpRight className="mr-1 h-3 w-3" />
-                  <span>15% less than yesterday</span>
-                </div>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-blue-200 flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-blue-700" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
+        <Grid item xs={12} sm={6} md={3}>
+          <Box 
+            component={Paper} 
+            elevation={0}
+            sx={{ 
+              p: 2, 
+              height: '100%',
+              borderRadius: 3,
+              background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+              border: '1px solid #e3f2fd',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                color: 'primary.dark',
+                fontWeight: 600,
+                mb: 1
+              }}
+            >
+              Today's Spending
+            </Typography>
+            
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography 
+                variant="h5" 
+                component="div"
+                sx={{ 
+                  fontWeight: 700,
+                  color: 'primary.dark' 
+                }}
+              >
+                {isLoading ? '—' : formatCurrency(todayTotal || 0)}
+              </Typography>
+              
+              <Avatar 
+                sx={{ 
+                  bgcolor: 'primary.light',
+                  width: 36,
+                  height: 36
+                }}
+              >
+                <DollarSign className="h-5 w-5 text-white" />
+              </Avatar>
+            </Box>
+            
+            <Box sx={{ display: 'flex', alignItems: 'center', mt: 'auto' }}>
+              <ArrowUpRight className="h-3 w-3 text-green-600" />
+              <Typography 
+                variant="caption"
+                sx={{ 
+                  ml: 0.5,
+                  color: 'success.main',
+                  fontWeight: 500
+                }}
+              >
+                15% less than yesterday
+              </Typography>
+            </Box>
+          </Box>
+        </Grid>
+        
         {/* Monthly Deductible */}
-        <Card className="overflow-hidden border-none shadow-md bg-gradient-to-br from-green-50 to-green-100">
-          <CardHeader className="pb-2">
-            <CardDescription className="text-green-700 font-medium">Monthly Deductible</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="w-full pr-4">
-                <div className="text-2xl font-bold text-green-900">
-                  {isLoading ? '—' : formatCurrency(monthlyDeductible || 0)}
-                </div>
-                <div className="w-full mt-2">
-                  <div className="h-2 w-full bg-green-200 rounded-full overflow-hidden">
-                    <div className="h-2 bg-green-600 rounded-full" style={{ width: `${monthlyGoalProgress}%` }}></div>
-                  </div>
-                  <div className="text-xs mt-1 text-green-700">{monthlyGoalProgress}% of monthly goal</div>
-                </div>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-green-200 flex items-center justify-center flex-shrink-0">
-                <CheckCircle className="h-6 w-6 text-green-700" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
+        <Grid item xs={12} sm={6} md={3}>
+          <Box 
+            component={Paper} 
+            elevation={0}
+            sx={{ 
+              p: 2, 
+              height: '100%',
+              borderRadius: 3,
+              background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
+              border: '1px solid #e8f5e9',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                color: 'success.dark',
+                fontWeight: 600,
+                mb: 1
+              }}
+            >
+              Monthly Deductible
+            </Typography>
+            
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography 
+                variant="h5" 
+                component="div"
+                sx={{ 
+                  fontWeight: 700,
+                  color: 'success.dark' 
+                }}
+              >
+                {isLoading ? '—' : formatCurrency(monthlyDeductible || 0)}
+              </Typography>
+              
+              <Avatar 
+                sx={{ 
+                  bgcolor: 'success.light',
+                  width: 36,
+                  height: 36
+                }}
+              >
+                <TrendingUp className="h-5 w-5 text-white" />
+              </Avatar>
+            </Box>
+            
+            <Box sx={{ width: '100%', mt: 1 }}>
+              <LinearProgress 
+                variant="determinate" 
+                value={monthlyGoalProgress} 
+                sx={{ 
+                  height: 6, 
+                  borderRadius: 1,
+                  bgcolor: 'success.100',
+                  '& .MuiLinearProgress-bar': {
+                    bgcolor: 'success.main'
+                  }
+                }}
+              />
+              <Typography 
+                variant="caption"
+                sx={{ 
+                  display: 'block',
+                  mt: 0.5,
+                  color: 'success.dark'
+                }}
+              >
+                {monthlyGoalProgress}% of monthly goal
+              </Typography>
+            </Box>
+          </Box>
+        </Grid>
+        
         {/* Tax Savings */}
-        <Card className="overflow-hidden border-none shadow-md bg-gradient-to-br from-purple-50 to-purple-100">
-          <CardHeader className="pb-2">
-            <CardDescription className="text-purple-700 font-medium">Tax Savings</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-bold text-purple-900">
-                  {isLoading ? '—' : formatCurrency(taxSavings || 0)}
-                </div>
-                <div className="flex items-center mt-1 text-xs font-medium text-purple-700">
-                  <ArrowUpRight className="mr-1 h-3 w-3" />
-                  <span>8% more than last month</span>
-                </div>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-purple-200 flex items-center justify-center">
-                <PiggyBank className="h-6 w-6 text-purple-700" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Outstanding Balance */}
-        <Card className="overflow-hidden border-none shadow-md bg-gradient-to-br from-amber-50 to-amber-100">
-          <CardHeader className="pb-2">
-            <CardDescription className="text-amber-700 font-medium">Projected Q1 Tax</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-bold text-amber-900">
-                  {isLoading ? '—' : formatCurrency(2459.78)}
-                </div>
-                <div className="flex items-center mt-1 text-xs font-medium text-amber-700">
-                  <Clock className="mr-1 h-3 w-3" />
-                  <span>Due in 37 days</span>
-                </div>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-amber-200 flex items-center justify-center">
-                <Calculator className="h-6 w-6 text-amber-700" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
-        {/* Left Column - 8/12 width */}
-        <div className="lg:col-span-8 space-y-6">
-          {/* Expense Trend Chart */}
-          <Card className="border-none shadow-md">
-            <CardHeader>
-              <div className="flex items-center justify-between">
+        <Grid item xs={12} sm={6} md={3}>
+          <Box 
+            component={Paper} 
+            elevation={0}
+            sx={{ 
+              p: 2,
+              height: '100%',
+              borderRadius: 3,
+              background: 'linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%)',
+              border: '1px solid #f3e5f5',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                color: 'secondary.dark',
+                fontWeight: 600,
+                mb: 1
+              }}
+            >
+              Tax Savings
+            </Typography>
+            
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography 
+                variant="h5" 
+                component="div"
+                sx={{ 
+                  fontWeight: 700,
+                  color: 'secondary.dark' 
+                }}
+              >
+                {isLoading ? '—' : formatCurrency(taxSavings || 0)}
+              </Typography>
+              
+              <Avatar 
+                sx={{ 
+                  bgcolor: 'secondary.light',
+                  width: 36,
+                  height: 36
+                }}
+              >
+                <PiggyBank className="h-5 w-5 text-white" />
+              </Avatar>
+            </Box>
+            
+            <Box sx={{ display: 'flex', alignItems: 'center', mt: 'auto' }}>
+              <ArrowUpRight className="h-3 w-3 text-indigo-600" />
+              <Typography 
+                variant="caption"
+                sx={{ 
+                  ml: 0.5,
+                  color: 'secondary.dark',
+                  fontWeight: 500
+                }}
+              >
+                8% more than last month
+              </Typography>
+            </Box>
+          </Box>
+        </Grid>
+        
+        {/* Upcoming Tax Due */}
+        <Grid item xs={12} sm={6} md={3}>
+          <Box 
+            component={Paper} 
+            elevation={0}
+            sx={{ 
+              p: 2, 
+              height: '100%',
+              borderRadius: 3,
+              background: 'linear-gradient(135deg, #fff8e1 0%, #ffe082 100%)',
+              border: '1px solid #fff8e1',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                color: 'warning.dark',
+                fontWeight: 600,
+                mb: 1
+              }}
+            >
+              Projected Q1 Tax
+            </Typography>
+            
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography 
+                variant="h5" 
+                component="div"
+                sx={{ 
+                  fontWeight: 700,
+                  color: 'warning.dark' 
+                }}
+              >
+                {isLoading ? '—' : formatCurrency(2459.78)}
+              </Typography>
+              
+              <Avatar 
+                sx={{ 
+                  bgcolor: 'warning.main',
+                  width: 36,
+                  height: 36
+                }}
+              >
+                <Calculator className="h-5 w-5 text-white" />
+              </Avatar>
+            </Box>
+            
+            <Box sx={{ display: 'flex', alignItems: 'center', mt: 'auto' }}>
+              <Clock className="h-3 w-3 text-amber-700" />
+              <Typography 
+                variant="caption"
+                sx={{ 
+                  ml: 0.5,
+                  color: 'warning.dark',
+                  fontWeight: 500
+                }}
+              >
+                Due in 37 days
+              </Typography>
+            </Box>
+          </Box>
+        </Grid>
+      </Grid>
+      
+      {/* Main Content Area - Desktop Layout */}
+      <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
+        <Grid container spacing={3}>
+          {/* Left Side - 8/12 */}
+          <Grid item xs={12} lg={8}>
+            {/* Expense Trend Chart */}
+            <Box 
+              component={Paper} 
+              elevation={0}
+              sx={{ 
+                p: 2.5, 
+                mb: 3,
+                borderRadius: 3,
+                border: '1px solid',
+                borderColor: 'divider'
+              }}
+            >
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <div>
-                  <CardTitle className="text-xl">Expense Trends</CardTitle>
-                  <CardDescription>Business vs personal spending over time</CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" className="h-8 text-xs">
-                    <Filter className="h-3 w-3 mr-1" /> Filter
-                  </Button>
-                  <Button variant="outline" size="sm" className="h-8 text-xs">
-                    <Clock className="h-3 w-3 mr-1" /> Last 6 Months
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={expenseTrendData}
-                  margin={{ top: 10, right: 10, left: 0, bottom: 20 }}
-                >
-                  <XAxis dataKey="name" />
-                  <YAxis tickFormatter={(value) => `$${value}`} />
-                  <Tooltip 
-                    formatter={(value) => [`$${value}`, undefined]}
-                    labelFormatter={(label) => `Month: ${label}`}
-                  />
-                  <Legend />
-                  <Bar dataKey="business" name="Business" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="personal" name="Personal" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          {/* Recent Expenses */}
-          <Card className="border-none shadow-md">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-xl">Recent Expenses</CardTitle>
-                  <CardDescription>Your latest transactions</CardDescription>
-                </div>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href="/expenses" className="text-blue-600 hover:text-blue-700">
-                    View All <ArrowRight className="ml-1 h-4 w-4" />
-                  </Link>
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex items-center p-3 animate-pulse">
-                      <div className="w-10 h-10 rounded-full bg-gray-200 mr-3"></div>
-                      <div className="flex-1">
-                        <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
-                        <div className="h-3 bg-gray-200 rounded w-1/4"></div>
-                      </div>
-                      <div className="h-5 bg-gray-200 rounded w-16"></div>
-                    </div>
-                  ))}
-                </div>
-              ) : expenses.length > 0 ? (
-                <div className="space-y-1">
-                  {expenses.map((expense) => {
-                    const categoryColor = getCategoryColor(expense.categoryId);
-                    
-                    return (
-                      <Link href={`/expenses/${expense.id}`} key={expense.id}>
-                        <div className="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                          <div className={`w-10 h-10 rounded-full ${categoryColor.bg} flex items-center justify-center mr-3`}>
-                            {getCategoryIcon(expense.categoryId)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-center">
-                              <h3 className="font-medium truncate">{expense.vendor}</h3>
-                              <span className={`font-medium ${expense.isBusinessExpense ? 'text-green-600' : ''}`}>
-                                {formatCurrency(expense.amount)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between mt-1">
-                              <div className="flex items-center text-sm text-gray-500">
-                                <span className="truncate">{getCategoryName(expense.categoryId)}</span>
-                                <span className="mx-1">•</span>
-                                <span>{formatExpenseDate(expense.date)}</span>
-                              </div>
-                              <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                expense.isBusinessExpense ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-                              }`}>
-                                {expense.isBusinessExpense ? 'Business' : 'Personal'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <div className="inline-block p-3 rounded-full bg-blue-100 mb-4">
-                    <Receipt className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <h3 className="text-lg font-medium mb-2">No expenses yet</h3>
-                  <p className="text-gray-500 max-w-sm mx-auto mb-6">
-                    Start tracking your expenses to see them appear here.
-                  </p>
-                  <Button onClick={handleAddExpense}>
-                    <Plus className="mr-2 h-4 w-4" /> Add First Expense
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-            {expenses.length > 0 && (
-              <CardFooter className="border-t pt-4 flex justify-between text-sm text-gray-500">
-                <span>Showing {expenses.length} of {expenses.length} recent expenses</span>
-                <Button variant="outline" size="sm">
-                  <FileText className="mr-2 h-4 w-4" /> Export All
-                </Button>
-              </CardFooter>
-            )}
-          </Card>
-        </div>
-
-        {/* Right Column - 4/12 width */}
-        <div className="lg:col-span-4 space-y-6">
-          {/* Category Breakdown */}
-          <Card className="border-none shadow-md">
-            <CardHeader>
-              <CardTitle className="text-xl">Category Breakdown</CardTitle>
-              <CardDescription>Business expense distribution</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="animate-pulse space-y-2">
-                  <div className="h-[180px] bg-gray-200 rounded-lg mb-4"></div>
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex items-center py-1">
-                      <div className="h-3 w-3 rounded-full bg-gray-200 mr-2"></div>
-                      <div className="h-4 bg-gray-200 rounded flex-1"></div>
-                      <div className="h-4 bg-gray-200 rounded w-12 ml-2"></div>
-                    </div>
-                  ))}
-                </div>
-              ) : categoryBreakdown.length > 0 ? (
-                <>
-                  <div className="h-[180px] mb-4">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={chartData}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={70}
-                          innerRadius={40}
-                          paddingAngle={2}
-                          dataKey="percentage"
-                          labelLine={false}
-                        >
-                          {chartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value) => [`${value}%`, 'Percentage']} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  
-                  <div className="space-y-2 mt-4">
-                    {categoryBreakdown.map((category) => {
-                      const color = getCategoryColor(category.categoryId);
-                      return (
-                        <div key={category.categoryId} className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <div className={`h-3 w-3 rounded-full ${color.bg}`}></div>
-                            <span className="ml-2 text-sm text-gray-700">{category.categoryName}</span>
-                          </div>
-                          <span className="text-sm font-medium">{category.percentage}%</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              ) : (
-                <div className="text-center py-10">
-                  <div className="inline-block p-3 rounded-full bg-gray-100 mb-4">
-                    <BarChart3 className="h-6 w-6 text-gray-500" />
-                  </div>
-                  <h3 className="text-lg font-medium mb-2">No data available</h3>
-                  <p className="text-gray-500 max-w-sm mx-auto mb-4">
-                    Add business expenses to see category breakdown.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Upcoming Tax Dates */}
-          <Card className="border-none shadow-md">
-            <CardHeader>
-              <CardTitle className="text-xl">Upcoming Tax Dates</CardTitle>
-              <CardDescription>Important deadlines</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="space-y-4">
-                <div className="flex items-start gap-3 p-3 rounded-lg bg-red-50 border border-red-100">
-                  <div className="h-10 w-10 flex-shrink-0 rounded-full bg-red-100 flex items-center justify-center">
-                    <Calendar className="h-5 w-5 text-red-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-red-800">Quarterly Estimated Tax</h4>
-                    <p className="text-sm text-red-700 mt-0.5">Due in 37 days (April 15, 2025)</p>
-                  </div>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    Expense Trends
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Business vs personal spending
+                  </Typography>
                 </div>
                 
-                <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 border border-blue-100">
-                  <div className="h-10 w-10 flex-shrink-0 rounded-full bg-blue-100 flex items-center justify-center">
-                    <FileText className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-blue-800">W-2 and 1099 Forms</h4>
-                    <p className="text-sm text-blue-700 mt-0.5">Due in 92 days (June 15, 2025)</p>
-                  </div>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <ButtonGroup size="small" variant="outlined">
+                    {['3m', '6m', '1y'].map((period) => (
+                      <Button 
+                        key={period}
+                        variant={chartPeriod === period ? 'contained' : 'outlined'}
+                        onClick={() => setChartPeriod(period)}
+                        sx={{ 
+                          fontSize: '0.75rem',
+                          minWidth: '40px'
+                        }}
+                      >
+                        {period}
+                      </Button>
+                    ))}
+                  </ButtonGroup>
+                  
+                  <Button 
+                    variant="outlined" 
+                    size="small"
+                    sx={{ fontSize: '0.75rem' }}
+                    startIcon={<Filter size={14} />}
+                  >
+                    Filter
+                  </Button>
+                </Box>
+              </Box>
+              
+              <Box sx={{ height: 320 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={expenseTrendData}
+                    margin={{ top: 10, right: 20, left: 20, bottom: 10 }}
+                  >
+                    <defs>
+                      <linearGradient id="business" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                      </linearGradient>
+                      <linearGradient id="personal" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#94a3b8" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#94a3b8" stopOpacity={0.1}/>
+                      </linearGradient>
+                    </defs>
+                    <XAxis 
+                      dataKey="name" 
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis 
+                      tickFormatter={(value) => `$${value/1000}k`}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip 
+                      formatter={(value: any) => [`$${value.toLocaleString()}`, undefined]}
+                      labelFormatter={(label) => `Month: ${label}`}
+                    />
+                    <Legend />
+                    <Area 
+                      type="monotone" 
+                      dataKey="business" 
+                      name="Business" 
+                      stroke="#3b82f6" 
+                      fillOpacity={1}
+                      fill="url(#business)" 
+                      activeDot={{ r: 6 }}
+                      strokeWidth={2}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="personal" 
+                      name="Personal" 
+                      stroke="#94a3b8" 
+                      fillOpacity={1}
+                      fill="url(#personal)"
+                      strokeWidth={2}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </Box>
+            </Box>
+            
+            {/* Recent Expenses */}
+            <Box 
+              component={Paper} 
+              elevation={0}
+              sx={{ 
+                borderRadius: 3,
+                border: '1px solid',
+                borderColor: 'divider'
+              }}
+            >
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2.5, pb: 1.5 }}>
+                <div>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    Recent Expenses
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Your latest transactions
+                  </Typography>
                 </div>
-              </div>
-            </CardContent>
-            <CardFooter className="border-t pt-4">
-              <Button variant="outline" className="w-full">
-                <Calendar className="h-4 w-4 mr-2" /> View Tax Calendar
+                
+                <Button 
+                  component={Link}
+                  href="/expenses"
+                  endIcon={<ArrowRight className="h-4 w-4" />}
+                  variant="text"
+                  sx={{ color: 'primary.main' }}
+                >
+                  View All
+                </Button>
+              </Box>
+              
+              <Box sx={{ p: 2.5, pt: 0 }}>
+                {isLoading ? (
+                  <Stack spacing={1}>
+                    {[1, 2, 3].map(i => (
+                      <Box key={i} sx={{ display: 'flex', p: 1.5 }}>
+                        <Box sx={{ mr: 2, width: 40, height: 40, borderRadius: '50%', bgcolor: 'grey.200' }} />
+                        <Box sx={{ width: '100%' }}>
+                          <Box sx={{ height: 16, width: '40%', bgcolor: 'grey.200', mb: 1, borderRadius: 1 }} />
+                          <Box sx={{ height: 12, width: '20%', bgcolor: 'grey.200', borderRadius: 1 }} />
+                        </Box>
+                        <Box sx={{ width: 60, height: 20, bgcolor: 'grey.200', borderRadius: 1 }} />
+                      </Box>
+                    ))}
+                  </Stack>
+                ) : expenses.length > 0 ? (
+                  <Stack spacing={1}>
+                    {expenses.map(expense => (
+                      <ExpenseItem 
+                        key={expense.id}
+                        expense={expense}
+                        category={getCategoryName(expense.categoryId)}
+                        icon={getCategoryIcon(expense.categoryId)}
+                      />
+                    ))}
+                  </Stack>
+                ) : (
+                  <Box sx={{ py: 6, textAlign: 'center' }}>
+                    <Avatar 
+                      sx={{ 
+                        width: 56, 
+                        height: 56, 
+                        bgcolor: 'primary.50',
+                        color: 'primary.main',
+                        mx: 'auto',
+                        mb: 2
+                      }}
+                    >
+                      <Receipt className="h-6 w-6" />
+                    </Avatar>
+                    <Typography variant="h6" sx={{ mb: 1 }}>No expenses yet</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3, maxWidth: 300, mx: 'auto' }}>
+                      Start tracking your expenses to see them appear here.
+                    </Typography>
+                    <Button>
+                      <Plus className="mr-2 h-4 w-4" /> Add First Expense
+                    </Button>
+                  </Box>
+                )}
+              </Box>
+              
+              {expenses.length > 0 && (
+                <Box 
+                  sx={{ 
+                    p: 2, 
+                    display: 'flex', 
+                    justifyContent: 'space-between',
+                    borderTop: '1px solid',
+                    borderColor: 'divider'
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary">
+                    Showing {expenses.length} of {expenses.length} recent transactions
+                  </Typography>
+                  
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<FileText className="h-4 w-4" />}
+                  >
+                    Export CSV
+                  </Button>
+                </Box>
+              )}
+            </Box>
+          </Grid>
+          
+          {/* Right Side - 4/12 */}
+          <Grid item xs={12} lg={4}>
+            <Stack spacing={3}>
+              {/* Category Breakdown */}
+              <Box 
+                component={Paper} 
+                elevation={0}
+                sx={{ 
+                  borderRadius: 3,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  p: 2.5
+                }}
+              >
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  Category Breakdown
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Business expense distribution
+                </Typography>
+                
+                {isLoading ? (
+                  <Box sx={{ textAlign: 'center', py: 2 }}>
+                    <Box sx={{ height: 160, width: '100%', bgcolor: 'grey.100', borderRadius: 2, mb: 2 }} />
+                    <Stack spacing={1}>
+                      {[1, 2, 3].map(i => (
+                        <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'grey.200', mr: 1 }} />
+                            <Box sx={{ width: 80, height: 16, bgcolor: 'grey.200', borderRadius: 1 }} />
+                          </Box>
+                          <Box sx={{ width: 30, height: 16, bgcolor: 'grey.200', borderRadius: 1 }} />
+                        </Box>
+                      ))}
+                    </Stack>
+                  </Box>
+                ) : categoryBreakdown.length > 0 ? (
+                  <>
+                    <Box sx={{ height: 180, width: '100%' }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={chartData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            outerRadius={70}
+                            innerRadius={35}
+                            fill="#8884d8"
+                            dataKey="percentage"
+                          >
+                            {chartData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value) => [`${value}%`, 'Percentage']} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </Box>
+                    
+                    <Box sx={{ mt: 2 }}>
+                      <Stack spacing={1.5}>
+                        {categoryBreakdown.map(category => {
+                          const color = getCategoryColor(category.categoryId);
+                          return (
+                            <Box 
+                              key={category.categoryId} 
+                              sx={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                              }}
+                            >
+                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                <Box 
+                                  sx={{ 
+                                    width: 10, 
+                                    height: 10, 
+                                    borderRadius: '50%', 
+                                    mr: 1.5,
+                                    backgroundColor: color.chartColor 
+                                  }} 
+                                />
+                                <Typography variant="body2">{category.categoryName}</Typography>
+                              </Box>
+                              <Typography variant="body2" fontWeight={500}>{category.percentage}%</Typography>
+                            </Box>
+                          );
+                        })}
+                      </Stack>
+                    </Box>
+                  </>
+                ) : (
+                  <Box sx={{ textAlign: 'center', py: 4 }}>
+                    <Avatar 
+                      sx={{ 
+                        width: 56, 
+                        height: 56, 
+                        bgcolor: 'grey.100',
+                        color: 'text.secondary',
+                        mx: 'auto',
+                        mb: 2
+                      }}
+                    >
+                      <BarChart3 className="h-6 w-6" />
+                    </Avatar>
+                    <Typography variant="h6" sx={{ mb: 1 }}>No data available</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      Add business expenses to see your distribution.
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+              
+              {/* Upcoming Tax Dates */}
+              <Box 
+                component={Paper} 
+                elevation={0}
+                sx={{ 
+                  borderRadius: 3,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  p: 2.5
+                }}
+              >
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  Upcoming Tax Dates
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Important deadlines to remember
+                </Typography>
+                
+                <Stack spacing={2}>
+                  <Box 
+                    sx={{ 
+                      p: 2, 
+                      borderRadius: 2, 
+                      bgcolor: 'error.50',
+                      border: '1px solid',
+                      borderColor: 'error.100'
+                    }}
+                  >
+                    <Stack direction="row" spacing={2}>
+                      <Avatar sx={{ bgcolor: 'error.100', color: 'error.main' }}>
+                        <Calendar className="h-5 w-5" />
+                      </Avatar>
+                      <Box>
+                        <Typography variant="subtitle2" color="error.dark">
+                          Quarterly Estimated Tax
+                        </Typography>
+                        <Typography variant="caption" color="error.dark">
+                          Due in 37 days (April 15, 2025)
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </Box>
+                  
+                  <Box 
+                    sx={{ 
+                      p: 2, 
+                      borderRadius: 2, 
+                      bgcolor: 'primary.50',
+                      border: '1px solid',
+                      borderColor: 'primary.100'
+                    }}
+                  >
+                    <Stack direction="row" spacing={2}>
+                      <Avatar sx={{ bgcolor: 'primary.100', color: 'primary.main' }}>
+                        <FileText className="h-5 w-5" />
+                      </Avatar>
+                      <Box>
+                        <Typography variant="subtitle2" color="primary.dark">
+                          W-2 and 1099 Forms
+                        </Typography>
+                        <Typography variant="caption" color="primary.dark">
+                          Due in 92 days (June 15, 2025)
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </Box>
+                </Stack>
+                
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  startIcon={<Calendar className="h-4 w-4" />}
+                  sx={{ mt: 2 }}
+                >
+                  View Tax Calendar
+                </Button>
+              </Box>
+              
+              {/* Quick Actions */}
+              <Box 
+                component={Paper} 
+                elevation={0}
+                sx={{ 
+                  borderRadius: 3,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  p: 2.5
+                }}
+              >
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  Quick Actions
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Frequently used tools
+                </Typography>
+                
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      sx={{ 
+                        py: 1.5,
+                        height: 'auto',
+                        flexDirection: 'column',
+                        color: 'primary.main',
+                        borderColor: 'primary.100',
+                        '&:hover': {
+                          borderColor: 'primary.main',
+                          bgcolor: 'primary.50'
+                        }
+                      }}
+                    >
+                      <Calculator className="h-5 w-5 mb-1" />
+                      <Typography variant="caption">Tax Calculator</Typography>
+                    </Button>
+                  </Grid>
+                  
+                  <Grid item xs={6}>
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      sx={{ 
+                        py: 1.5,
+                        height: 'auto',
+                        flexDirection: 'column',
+                        color: 'success.main',
+                        borderColor: 'success.100',
+                        '&:hover': {
+                          borderColor: 'success.main',
+                          bgcolor: 'success.50'
+                        }
+                      }}
+                    >
+                      <FileText className="h-5 w-5 mb-1" />
+                      <Typography variant="caption">Generate Report</Typography>
+                    </Button>
+                  </Grid>
+                  
+                  <Grid item xs={6}>
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      sx={{ 
+                        py: 1.5,
+                        height: 'auto',
+                        flexDirection: 'column',
+                        color: 'secondary.main',
+                        borderColor: 'secondary.100',
+                        '&:hover': {
+                          borderColor: 'secondary.main',
+                          bgcolor: 'secondary.50'
+                        }
+                      }}
+                    >
+                      <Sparkles className="h-5 w-5 mb-1" />
+                      <Typography variant="caption">Tax Insights</Typography>
+                    </Button>
+                  </Grid>
+                  
+                  <Grid item xs={6}>
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      sx={{ 
+                        py: 1.5,
+                        height: 'auto',
+                        flexDirection: 'column',
+                        color: 'warning.main',
+                        borderColor: 'warning.100',
+                        '&:hover': {
+                          borderColor: 'warning.main',
+                          bgcolor: 'warning.50'
+                        }
+                      }}
+                    >
+                      <CircleDollarSign className="h-5 w-5 mb-1" />
+                      <Typography variant="caption">Set Budget</Typography>
+                    </Button>
+                  </Grid>
+                </Grid>
+              </Box>
+            </Stack>
+          </Grid>
+        </Grid>
+      </Box>
+      
+      {/* Mobile Layout */}
+      <Box sx={{ display: { xs: 'block', lg: 'none' } }}>
+        {/* Tabs for Mobile */}
+        <Box sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
+          <Tabs 
+            value={tabValue} 
+            onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
+            sx={{
+              '& .MuiTab-root': {
+                minWidth: 'auto',
+                px: 3,
+                py: 1.5
+              }
+            }}
+          >
+            <Tab label="Overview" />
+            <Tab label="Expenses" />
+            <Tab label="Analytics" />
+            <Tab label="Tax Dates" />
+          </Tabs>
+        </Box>
+        
+        {/* Overview Tab Panel */}
+        {tabValue === 0 && (
+          <Stack spacing={3}>
+            {/* Line chart of spending */}
+            <Box 
+              component={Paper}
+              elevation={0}
+              sx={{ 
+                p: 2, 
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider'
+              }}
+            >
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="subtitle1" fontWeight={600}>
+                  Spending Trend
+                </Typography>
+                
+                <ButtonGroup size="small" variant="outlined">
+                  {['3m', '6m', '1y'].map((period) => (
+                    <Button 
+                      key={period}
+                      variant={chartPeriod === period ? 'contained' : 'outlined'}
+                      onClick={() => setChartPeriod(period)}
+                      sx={{ 
+                        minWidth: 'unset',
+                        px: 1,
+                        fontSize: '0.75rem'
+                      }}
+                    >
+                      {period}
+                    </Button>
+                  ))}
+                </ButtonGroup>
+              </Box>
+              
+              <Box sx={{ height: 220 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={expenseTrendData}
+                    margin={{ top: 5, right: 5, left: 0, bottom: 5 }}
+                  >
+                    <XAxis 
+                      dataKey="name" 
+                      tick={{ fontSize: 12 }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis 
+                      tickFormatter={(value) => `$${value/1000}k`}
+                      tick={{ fontSize: 12 }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip formatter={(value: any) => [`$${value}`, undefined]} />
+                    <Line 
+                      type="monotone" 
+                      dataKey="total" 
+                      name="Total" 
+                      stroke="#3b82f6" 
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </Box>
+            </Box>
+            
+            {/* Category breakdown */}
+            <Box 
+              component={Paper}
+              elevation={0}
+              sx={{ 
+                p: 2, 
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider'
+              }}
+            >
+              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
+                Category Breakdown
+              </Typography>
+              
+              {isLoading ? (
+                <Box sx={{ textAlign: 'center', py: 2 }}>
+                  <Box sx={{ height: 100, width: '100%', bgcolor: 'grey.100', borderRadius: 2, mb: 2 }} />
+                </Box>
+              ) : categoryBreakdown.length > 0 ? (
+                <Stack spacing={1}>
+                  {categoryBreakdown.map(category => {
+                    const color = getCategoryColor(category.categoryId);
+                    return (
+                      <Box 
+                        key={category.categoryId} 
+                        sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center',
+                          p: 0.5
+                        }}
+                      >
+                        <Box 
+                          sx={{ 
+                            width: 10, 
+                            height: 10, 
+                            borderRadius: '50%', 
+                            mr: 1.5,
+                            backgroundColor: color.chartColor 
+                          }} 
+                        />
+                        <Typography variant="body2" sx={{ flexGrow: 1 }}>
+                          {category.categoryName}
+                        </Typography>
+                        <Box 
+                          sx={{ 
+                            flexGrow: 1, 
+                            mx: 1, 
+                            height: 6, 
+                            bgcolor: 'grey.100',
+                            borderRadius: 3,
+                            position: 'relative',
+                            overflow: 'hidden'
+                          }}
+                        >
+                          <Box 
+                            sx={{
+                              position: 'absolute',
+                              left: 0,
+                              top: 0,
+                              height: '100%',
+                              width: `${category.percentage}%`,
+                              bgcolor: color.chartColor,
+                              borderRadius: 3
+                            }}
+                          />
+                        </Box>
+                        <Typography variant="caption" fontWeight={500} sx={{ minWidth: 30, textAlign: 'right' }}>
+                          {category.percentage}%
+                        </Typography>
+                      </Box>
+                    );
+                  })}
+                </Stack>
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    No category data available
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+            
+            {/* Recent Expenses */}
+            <Box 
+              component={Paper}
+              elevation={0}
+              sx={{ 
+                p: 2, 
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider'
+              }}
+            >
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                <Typography variant="subtitle1" fontWeight={600}>
+                  Recent Expenses
+                </Typography>
+                
+                <Button 
+                  component={Link}
+                  href="/expenses"
+                  endIcon={<ArrowRight className="h-4 w-4" />}
+                  variant="text"
+                  sx={{ 
+                    color: 'primary.main',
+                    p: 0,
+                    minWidth: 'unset',
+                    fontSize: '0.75rem'
+                  }}
+                >
+                  View All
+                </Button>
+              </Box>
+              
+              {isLoading ? (
+                <Stack spacing={1}>
+                  {[1, 2].map(i => (
+                    <Box key={i} sx={{ display: 'flex', p: 1 }}>
+                      <Box sx={{ mr: 2, width: 36, height: 36, borderRadius: '50%', bgcolor: 'grey.200' }} />
+                      <Box sx={{ width: '100%' }}>
+                        <Box sx={{ height: 14, width: '40%', bgcolor: 'grey.200', mb: 1, borderRadius: 1 }} />
+                        <Box sx={{ height: 10, width: '20%', bgcolor: 'grey.200', borderRadius: 1 }} />
+                      </Box>
+                      <Box sx={{ width: 50, height: 18, bgcolor: 'grey.200', borderRadius: 1 }} />
+                    </Box>
+                  ))}
+                </Stack>
+              ) : expenses.length > 0 ? (
+                <Stack spacing={0.5}>
+                  {expenses.slice(0, 3).map(expense => (
+                    <ExpenseItem 
+                      key={expense.id}
+                      expense={expense}
+                      category={getCategoryName(expense.categoryId)}
+                      icon={getCategoryIcon(expense.categoryId)}
+                    />
+                  ))}
+                </Stack>
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 3 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    No expenses yet
+                  </Typography>
+                  <Button size="small">
+                    <Plus className="mr-2 h-3 w-3" /> Add Expense
+                  </Button>
+                </Box>
+              )}
+            </Box>
+            
+            {/* Tax Deadlines */}
+            <Box 
+              component={Paper}
+              elevation={0}
+              sx={{ 
+                p: 2, 
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider'
+              }}
+            >
+              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
+                Tax Deadlines
+              </Typography>
+              
+              <Box 
+                sx={{ 
+                  p: 1.5, 
+                  borderRadius: 2, 
+                  bgcolor: 'error.50',
+                  border: '1px solid',
+                  borderColor: 'error.100',
+                  mb: 1.5
+                }}
+              >
+                <Stack direction="row" spacing={1.5}>
+                  <Avatar sx={{ bgcolor: 'error.100', color: 'error.main', width: 32, height: 32 }}>
+                    <Calendar className="h-4 w-4" />
+                  </Avatar>
+                  <Box>
+                    <Typography variant="body2" fontWeight={500} color="error.dark">
+                      Quarterly Estimated Tax
+                    </Typography>
+                    <Typography variant="caption" color="error.dark">
+                      Due in 37 days
+                    </Typography>
+                  </Box>
+                </Stack>
+              </Box>
+              
+              <Button
+                fullWidth
+                variant="outlined"
+                size="small"
+                startIcon={<Calendar className="h-4 w-4" />}
+              >
+                View Calendar
               </Button>
-            </CardFooter>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card className="border-none shadow-md">
-            <CardHeader>
-              <CardTitle className="text-xl">Quick Actions</CardTitle>
-              <CardDescription>Common tasks</CardDescription>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-3">
-              <Button variant="outline" className="h-auto py-3 flex flex-col items-center justify-center">
-                <Calculator className="h-5 w-5 mb-2 text-blue-600" />
-                <span className="text-sm">Tax Calculator</span>
-              </Button>
-              <Button variant="outline" className="h-auto py-3 flex flex-col items-center justify-center">
-                <FileText className="h-5 w-5 mb-2 text-green-600" />
-                <span className="text-sm">Generate Report</span>
-              </Button>
-              <Button variant="outline" className="h-auto py-3 flex flex-col items-center justify-center">
-                <Sparkles className="h-5 w-5 mb-2 text-purple-600" />
-                <span className="text-sm">Tax Insights</span>
-              </Button>
-              <Button variant="outline" className="h-auto py-3 flex flex-col items-center justify-center">
-                <CircleDollarSign className="h-5 w-5 mb-2 text-amber-600" />
-                <span className="text-sm">Set Budget</span>
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+            </Box>
+          </Stack>
+        )}
+        
+        {/* Expenses Tab Panel */}
+        {tabValue === 1 && (
+          <Box>
+            {/* Mobile Expenses List */}
+            <Box 
+              component={Paper}
+              elevation={0}
+              sx={{ 
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider',
+                overflow: 'hidden'
+              }}
+            >
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  p: 2,
+                  pb: 1.5,
+                  borderBottom: '1px solid',
+                  borderColor: 'divider'
+                }}
+              >
+                <Typography variant="subtitle1" fontWeight={600}>
+                  Recent Expenses
+                </Typography>
+                
+                <Button
+                  size="small"
+                  variant="text"
+                  endIcon={<Filter size={14} />}
+                  sx={{ color: 'text.secondary' }}
+                >
+                  Filter
+                </Button>
+              </Box>
+              
+              {isLoading ? (
+                <Box sx={{ p: 2 }}>
+                  <Stack spacing={1.5}>
+                    {[1, 2, 3, 4].map(i => (
+                      <Box key={i} sx={{ display: 'flex', p: 1 }}>
+                        <Box sx={{ mr: 2, width: 36, height: 36, borderRadius: '50%', bgcolor: 'grey.200' }} />
+                        <Box sx={{ width: '100%' }}>
+                          <Box sx={{ height: 14, width: '40%', bgcolor: 'grey.200', mb: 1, borderRadius: 1 }} />
+                          <Box sx={{ height: 10, width: '20%', bgcolor: 'grey.200', borderRadius: 1 }} />
+                        </Box>
+                        <Box sx={{ width: 50, height: 18, bgcolor: 'grey.200', borderRadius: 1 }} />
+                      </Box>
+                    ))}
+                  </Stack>
+                </Box>
+              ) : expenses.length > 0 ? (
+                <Box sx={{ p: 2 }}>
+                  <Stack spacing={1.5}>
+                    {expenses.map(expense => (
+                      <ExpenseItem 
+                        key={expense.id}
+                        expense={expense}
+                        category={getCategoryName(expense.categoryId)}
+                        icon={getCategoryIcon(expense.categoryId)}
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 6 }}>
+                  <Avatar 
+                    sx={{ 
+                      width: 48, 
+                      height: 48, 
+                      bgcolor: 'primary.50',
+                      color: 'primary.main',
+                      mx: 'auto',
+                      mb: 2
+                    }}
+                  >
+                    <Receipt className="h-5 w-5" />
+                  </Avatar>
+                  <Typography variant="subtitle1" sx={{ mb: 1 }}>No expenses yet</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    Start tracking your expenses
+                  </Typography>
+                  <Button>
+                    <Plus className="mr-2 h-4 w-4" /> Add Expense
+                  </Button>
+                </Box>
+              )}
+              
+              {expenses.length > 0 && (
+                <Box 
+                  sx={{ 
+                    p: 2, 
+                    display: 'flex', 
+                    justifyContent: 'center',
+                    borderTop: '1px solid',
+                    borderColor: 'divider'
+                  }}
+                >
+                  <Button
+                    variant="text"
+                    color="primary"
+                    component={Link}
+                    href="/expenses"
+                    endIcon={<ArrowRight className="h-4 w-4" />}
+                  >
+                    View All Expenses
+                  </Button>
+                </Box>
+              )}
+            </Box>
+          </Box>
+        )}
+        
+        {/* Analytics Tab */}
+        {tabValue === 2 && (
+          <Stack spacing={3}>
+            {/* Analytics are simplified on mobile */}
+            <Box 
+              component={Paper}
+              elevation={0}
+              sx={{ 
+                p: 2, 
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider'
+              }}
+            >
+              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
+                Expense Distribution
+              </Typography>
+              
+              {isLoading ? (
+                <Box sx={{ textAlign: 'center', py: 2 }}>
+                  <Box sx={{ height: 150, width: '100%', bgcolor: 'grey.100', borderRadius: 2, mb: 2 }} />
+                </Box>
+              ) : categoryBreakdown.length > 0 ? (
+                <Box sx={{ height: 180, width: '100%' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={chartData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        outerRadius={60}
+                        innerRadius={30}
+                        fill="#8884d8"
+                        dataKey="percentage"
+                      >
+                        {chartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => [`${value}%`, 'Percentage']} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </Box>
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    No category data available
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </Stack>
+        )}
+        
+        {/* Tax Dates Tab */}
+        {tabValue === 3 && (
+          <Stack spacing={3}>
+            <Box 
+              component={Paper}
+              elevation={0}
+              sx={{ 
+                p: 2, 
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider'
+              }}
+            >
+              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
+                Important Tax Dates
+              </Typography>
+              
+              <Stack spacing={2}>
+                <Box 
+                  sx={{ 
+                    p: 2, 
+                    borderRadius: 2, 
+                    bgcolor: 'error.50',
+                    border: '1px solid',
+                    borderColor: 'error.100'
+                  }}
+                >
+                  <Stack direction="row" spacing={1.5}>
+                    <Avatar sx={{ bgcolor: 'error.100', color: 'error.main', width: 36, height: 36 }}>
+                      <Calendar className="h-4 w-4" />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="body2" fontWeight={500} color="error.dark">
+                        Quarterly Estimated Tax
+                      </Typography>
+                      <Typography variant="caption" color="error.dark">
+                        Due in 37 days (April 15, 2025)
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </Box>
+                
+                <Box 
+                  sx={{ 
+                    p: 2, 
+                    borderRadius: 2, 
+                    bgcolor: 'primary.50',
+                    border: '1px solid',
+                    borderColor: 'primary.100'
+                  }}
+                >
+                  <Stack direction="row" spacing={1.5}>
+                    <Avatar sx={{ bgcolor: 'primary.100', color: 'primary.main', width: 36, height: 36 }}>
+                      <FileText className="h-4 w-4" />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="body2" fontWeight={500} color="primary.dark">
+                        W-2 and 1099 Forms
+                      </Typography>
+                      <Typography variant="caption" color="primary.dark">
+                        Due in 92 days (June 15, 2025)
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </Box>
+              </Stack>
+              
+              <Box sx={{ mt: 3, textAlign: 'center' }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<Calendar className="h-4 w-4" />}
+                >
+                  View Full Tax Calendar
+                </Button>
+              </Box>
+            </Box>
+          </Stack>
+        )}
+      </Box>
     </div>
   )
 }
