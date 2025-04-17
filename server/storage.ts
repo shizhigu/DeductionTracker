@@ -41,6 +41,7 @@ export interface IStorage {
   getCategoryBreakdown(userId: number, businessOnly: boolean): Promise<{categoryId: number, categoryName: string, percentage: number}[]>;
 }
 
+// 内存存储实现 - 保留作为参考，但我们将使用数据库存储
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private categories: Map<number, Category>;
@@ -108,7 +109,8 @@ export class MemStorage implements IStorage {
         notes: "Coffee - Client Meeting",
         isBusinessExpense: true,
         isTaxDeductible: true,
-        deductiblePercentage: 100
+        deductiblePercentage: 100,
+        receiptUrl: null
       },
       {
         userId: 1,
@@ -119,7 +121,8 @@ export class MemStorage implements IStorage {
         notes: "Software Subscription",
         isBusinessExpense: true,
         isTaxDeductible: true,
-        deductiblePercentage: 100
+        deductiblePercentage: 100,
+        receiptUrl: null
       },
       {
         userId: 1,
@@ -130,7 +133,8 @@ export class MemStorage implements IStorage {
         notes: "Lunch",
         isBusinessExpense: false,
         isTaxDeductible: false,
-        deductiblePercentage: 0
+        deductiblePercentage: 0,
+        receiptUrl: null
       },
       {
         userId: 1,
@@ -141,7 +145,8 @@ export class MemStorage implements IStorage {
         notes: "Fuel",
         isBusinessExpense: true,
         isTaxDeductible: true,
-        deductiblePercentage: 75
+        deductiblePercentage: 75,
+        receiptUrl: null
       },
       {
         userId: 1,
@@ -152,7 +157,8 @@ export class MemStorage implements IStorage {
         notes: "Printer paper and ink",
         isBusinessExpense: true,
         isTaxDeductible: true,
-        deductiblePercentage: 100
+        deductiblePercentage: 100,
+        receiptUrl: null
       }
     ];
     
@@ -228,7 +234,17 @@ export class MemStorage implements IStorage {
   
   async createExpense(expense: InsertExpense): Promise<Expense> {
     const id = this.currentExpenseId++;
-    const newExpense: Expense = { ...expense, id };
+    // 确保所有必需字段都有值
+    const newExpense: Expense = { 
+      ...expense, 
+      id,
+      notes: expense.notes || null,
+      categoryId: expense.categoryId || null,
+      isBusinessExpense: expense.isBusinessExpense === undefined ? false : expense.isBusinessExpense,
+      isTaxDeductible: expense.isTaxDeductible === undefined ? false : expense.isTaxDeductible,
+      deductiblePercentage: expense.deductiblePercentage === undefined ? 0 : expense.deductiblePercentage,
+      receiptUrl: expense.receiptUrl || null
+    };
     this.expenses.set(id, newExpense);
     return newExpense;
   }
@@ -336,212 +352,321 @@ export class MemStorage implements IStorage {
   }
 }
 
-// DatabaseStorage 实现
-
-// DatabaseStorage 实现
+// 数据库存储实现
 export class DatabaseStorage implements IStorage {
   // 用户方法
   async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, id));
+      return user || undefined;
+    } catch (error) {
+      console.error('Error in getUser:', error);
+      return undefined;
+    }
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user || undefined;
+    try {
+      const [user] = await db.select().from(users).where(eq(users.username, username));
+      return user || undefined;
+    } catch (error) {
+      console.error('Error in getUserByUsername:', error);
+      return undefined;
+    }
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
-    return user;
+    try {
+      const [user] = await db.insert(users).values(insertUser).returning();
+      return user;
+    } catch (error) {
+      console.error('Error in createUser:', error);
+      throw new Error('Failed to create user');
+    }
   }
 
   // 分类方法
   async getCategories(): Promise<Category[]> {
-    return await db.select().from(categories);
+    try {
+      return await db.select().from(categories);
+    } catch (error) {
+      console.error('Error in getCategories:', error);
+      return [];
+    }
   }
 
   async getCategoryById(id: number): Promise<Category | undefined> {
-    const [category] = await db.select().from(categories).where(eq(categories.id, id));
-    return category || undefined;
+    try {
+      const [category] = await db.select().from(categories).where(eq(categories.id, id));
+      return category || undefined;
+    } catch (error) {
+      console.error('Error in getCategoryById:', error);
+      return undefined;
+    }
   }
 
   async createCategory(category: InsertCategory): Promise<Category> {
-    const [newCategory] = await db.insert(categories).values(category).returning();
-    return newCategory;
+    try {
+      const [newCategory] = await db.insert(categories).values(category).returning();
+      return newCategory;
+    } catch (error) {
+      console.error('Error in createCategory:', error);
+      throw new Error('Failed to create category');
+    }
   }
 
   // 支出方法
   async getExpenses(userId: number): Promise<Expense[]> {
-    return await db.select().from(expenses).where(eq(expenses.userId, userId));
+    try {
+      return await db.select().from(expenses).where(eq(expenses.userId, userId));
+    } catch (error) {
+      console.error('Error in getExpenses:', error);
+      return [];
+    }
   }
 
   async getExpenseById(id: number): Promise<Expense | undefined> {
-    const [expense] = await db.select().from(expenses).where(eq(expenses.id, id));
-    return expense || undefined;
+    try {
+      const [expense] = await db.select().from(expenses).where(eq(expenses.id, id));
+      return expense || undefined;
+    } catch (error) {
+      console.error('Error in getExpenseById:', error);
+      return undefined;
+    }
   }
 
   async getExpensesByUserId(userId: number): Promise<Expense[]> {
-    return await db.select().from(expenses).where(eq(expenses.userId, userId));
+    try {
+      return await db.select().from(expenses).where(eq(expenses.userId, userId));
+    } catch (error) {
+      console.error('Error in getExpensesByUserId:', error);
+      return [];
+    }
   }
 
   async getExpensesByCategory(userId: number, categoryId: number): Promise<Expense[]> {
-    return await db.select().from(expenses)
-      .where(and(
-        eq(expenses.userId, userId),
-        eq(expenses.categoryId, categoryId)
-      ));
+    try {
+      return await db.select().from(expenses)
+        .where(and(
+          eq(expenses.userId, userId),
+          eq(expenses.categoryId, categoryId)
+        ));
+    } catch (error) {
+      console.error('Error in getExpensesByCategory:', error);
+      return [];
+    }
   }
 
   async getBusinessExpenses(userId: number): Promise<Expense[]> {
-    return await db.select().from(expenses)
-      .where(and(
-        eq(expenses.userId, userId),
-        eq(expenses.isBusinessExpense, true)
-      ));
+    try {
+      return await db.select().from(expenses)
+        .where(and(
+          eq(expenses.userId, userId),
+          eq(expenses.isBusinessExpense, true)
+        ));
+    } catch (error) {
+      console.error('Error in getBusinessExpenses:', error);
+      return [];
+    }
   }
 
   async getTaxDeductibleExpenses(userId: number): Promise<Expense[]> {
-    return await db.select().from(expenses)
-      .where(and(
-        eq(expenses.userId, userId),
-        eq(expenses.isTaxDeductible, true)
-      ));
+    try {
+      return await db.select().from(expenses)
+        .where(and(
+          eq(expenses.userId, userId),
+          eq(expenses.isTaxDeductible, true)
+        ));
+    } catch (error) {
+      console.error('Error in getTaxDeductibleExpenses:', error);
+      return [];
+    }
   }
 
   async createExpense(expense: InsertExpense): Promise<Expense> {
-    const [newExpense] = await db.insert(expenses).values(expense).returning();
-    return newExpense;
+    try {
+      const [newExpense] = await db.insert(expenses).values(expense).returning();
+      return newExpense;
+    } catch (error) {
+      console.error('Error in createExpense:', error);
+      throw new Error('Failed to create expense');
+    }
   }
 
   async updateExpense(id: number, expenseUpdate: Partial<InsertExpense>): Promise<Expense | undefined> {
-    const [updatedExpense] = await db.update(expenses)
-      .set(expenseUpdate)
-      .where(eq(expenses.id, id))
-      .returning();
-    return updatedExpense || undefined;
+    try {
+      const [updatedExpense] = await db.update(expenses)
+        .set(expenseUpdate)
+        .where(eq(expenses.id, id))
+        .returning();
+      return updatedExpense || undefined;
+    } catch (error) {
+      console.error('Error in updateExpense:', error);
+      return undefined;
+    }
   }
 
   async deleteExpense(id: number): Promise<boolean> {
-    const result = await db.delete(expenses).where(eq(expenses.id, id));
-    return result !== null;
+    try {
+      const result = await db.delete(expenses).where(eq(expenses.id, id));
+      return true; // 假设删除成功
+    } catch (error) {
+      console.error('Error in deleteExpense:', error);
+      return false;
+    }
   }
 
   // 报告方法
   async getReports(userId: number): Promise<Report[]> {
-    return await db.select().from(reports).where(eq(reports.userId, userId));
+    try {
+      return await db.select().from(reports).where(eq(reports.userId, userId));
+    } catch (error) {
+      console.error('Error in getReports:', error);
+      return [];
+    }
   }
 
   async getReportById(id: number): Promise<Report | undefined> {
-    const [report] = await db.select().from(reports).where(eq(reports.id, id));
-    return report || undefined;
+    try {
+      const [report] = await db.select().from(reports).where(eq(reports.id, id));
+      return report || undefined;
+    } catch (error) {
+      console.error('Error in getReportById:', error);
+      return undefined;
+    }
   }
 
   async createReport(report: InsertReport): Promise<Report> {
-    const [newReport] = await db.insert(reports).values(report).returning();
-    return newReport;
+    try {
+      const [newReport] = await db.insert(reports).values(report).returning();
+      return newReport;
+    } catch (error) {
+      console.error('Error in createReport:', error);
+      throw new Error('Failed to create report');
+    }
   }
 
   // 汇总方法
   async getTodayTotal(userId: number): Promise<number> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const result = await db.select({
-      total: sql<number>`sum(${expenses.amount})`
-    })
-    .from(expenses)
-    .where(and(
-      eq(expenses.userId, userId),
-      gte(expenses.date, today)
-    ));
-    
-    return result[0]?.total || 0;
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const result = await db.select({
+        total: sql<number>`COALESCE(sum(${expenses.amount}), 0)`
+      })
+      .from(expenses)
+      .where(and(
+        eq(expenses.userId, userId),
+        gte(expenses.date, today)
+      ));
+      
+      return result[0]?.total || 0;
+    } catch (error) {
+      console.error('Error in getTodayTotal:', error);
+      return 0;
+    }
   }
 
   async getMonthlyDeductibleTotal(userId: number): Promise<number> {
-    const now = new Date();
-    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    
-    const result = await db.select({
-      total: sql<number>`sum(${expenses.amount} * ${expenses.deductiblePercentage} / 100)`
-    })
-    .from(expenses)
-    .where(and(
-      eq(expenses.userId, userId),
-      eq(expenses.isTaxDeductible, true),
-      gte(expenses.date, firstDayOfMonth)
-    ));
-    
-    return result[0]?.total || 0;
+    try {
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      
+      const result = await db.select({
+        total: sql<number>`COALESCE(sum(${expenses.amount} * ${expenses.deductiblePercentage} / 100), 0)`
+      })
+      .from(expenses)
+      .where(and(
+        eq(expenses.userId, userId),
+        eq(expenses.isTaxDeductible, true),
+        gte(expenses.date, firstDayOfMonth)
+      ));
+      
+      return result[0]?.total || 0;
+    } catch (error) {
+      console.error('Error in getMonthlyDeductibleTotal:', error);
+      return 0;
+    }
   }
 
   async getTaxSavings(userId: number): Promise<number> {
-    const taxRate = 0.21; // 假设21%的税率
-    
-    const result = await db.select({
-      total: sql<number>`sum(${expenses.amount} * ${expenses.deductiblePercentage} / 100 * ${taxRate})`
-    })
-    .from(expenses)
-    .where(and(
-      eq(expenses.userId, userId),
-      eq(expenses.isTaxDeductible, true)
-    ));
-    
-    return result[0]?.total || 0;
+    try {
+      const taxRate = 0.21; // 假设21%的税率
+      
+      const result = await db.select({
+        total: sql<number>`COALESCE(sum(${expenses.amount} * ${expenses.deductiblePercentage} / 100 * ${taxRate}), 0)`
+      })
+      .from(expenses)
+      .where(and(
+        eq(expenses.userId, userId),
+        eq(expenses.isTaxDeductible, true)
+      ));
+      
+      return result[0]?.total || 0;
+    } catch (error) {
+      console.error('Error in getTaxSavings:', error);
+      return 0;
+    }
   }
 
   async getCategoryBreakdown(userId: number, businessOnly: boolean): Promise<{categoryId: number, categoryName: string, percentage: number}[]> {
-    // 首先获取总金额
-    const totalResult = await db.select({
-      total: sql<number>`sum(${expenses.amount})`
-    })
-    .from(expenses)
-    .where(
-      businessOnly 
-        ? and(eq(expenses.userId, userId), eq(expenses.isBusinessExpense, true))
-        : eq(expenses.userId, userId)
-    );
-    
-    const total = totalResult[0]?.total || 0;
-    
-    if (total === 0) {
+    try {
+      // 首先获取总金额
+      const totalResult = await db.select({
+        total: sql<number>`COALESCE(sum(${expenses.amount}), 0)`
+      })
+      .from(expenses)
+      .where(
+        businessOnly 
+          ? and(eq(expenses.userId, userId), eq(expenses.isBusinessExpense, true))
+          : eq(expenses.userId, userId)
+      );
+      
+      const total = totalResult[0]?.total || 0;
+      
+      if (total === 0) {
+        return [];
+      }
+      
+      // 获取每个分类的总额和百分比
+      const query = db.select({
+        categoryId: expenses.categoryId,
+        categoryAmount: sql<number>`sum(${expenses.amount})`
+      })
+      .from(expenses)
+      .where(
+        businessOnly 
+          ? and(eq(expenses.userId, userId), eq(expenses.isBusinessExpense, true))
+          : eq(expenses.userId, userId)
+      )
+      .groupBy(expenses.categoryId);
+      
+      const categoryAmounts = await query;
+      
+      // 获取分类名称
+      const categoryIds = categoryAmounts.map(item => item.categoryId).filter(id => id !== null) as number[];
+      const categoryData = categoryIds.length > 0
+        ? await db.select().from(categories).where(inArray(categories.id, categoryIds))
+        : [];
+      
+      // 转换数据格式
+      return categoryAmounts.map(item => {
+        const category = categoryData.find(c => c.id === item.categoryId);
+        const percentage = (item.categoryAmount / total) * 100;
+        
+        return {
+          categoryId: item.categoryId || 0,
+          categoryName: category?.name || 'Uncategorized',
+          percentage: Math.round(percentage * 100) / 100
+        };
+      });
+    } catch (error) {
+      console.error('Error in getCategoryBreakdown:', error);
       return [];
     }
-    
-    // 获取每个分类的总额和百分比
-    const query = db.select({
-      categoryId: expenses.categoryId,
-      categoryAmount: sql<number>`sum(${expenses.amount})`
-    })
-    .from(expenses)
-    .where(
-      businessOnly 
-        ? and(eq(expenses.userId, userId), eq(expenses.isBusinessExpense, true))
-        : eq(expenses.userId, userId)
-    )
-    .groupBy(expenses.categoryId);
-    
-    const categoryAmounts = await query;
-    
-    // 获取分类名称
-    const categoryIds = categoryAmounts.map(item => item.categoryId).filter(id => id !== null) as number[];
-    const categoryData = categoryIds.length > 0
-      ? await db.select().from(categories).where(inArray(categories.id, categoryIds))
-      : [];
-    
-    // 转换数据格式
-    return categoryAmounts.map(item => {
-      const category = categoryData.find(c => c.id === item.categoryId);
-      const percentage = (item.categoryAmount / total) * 100;
-      
-      return {
-        categoryId: item.categoryId || 0,
-        categoryName: category?.name || 'Uncategorized',
-        percentage: Math.round(percentage * 100) / 100
-      };
-    });
   }
 }
 
+// 默认使用数据库存储
 export const storage = new DatabaseStorage();
