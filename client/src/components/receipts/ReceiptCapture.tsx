@@ -62,6 +62,11 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
     }
   });
   
+  // 判断是否为iOS设备
+  const isIOS = () => {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+  };
+  
   // Camera functionality
   const startCamera = async () => {
     try {
@@ -72,68 +77,118 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
         return;
       }
       
-      // 尝试使用当前选择的摄像头
+      // 检查navigator.mediaDevices是否可用
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("浏览器不支持getUserMedia API");
+      }
+      
+      console.log(`设备检测: iOS=${isIOS()}, 当前设置facingMode=${facingMode}`);
+      
+      // 为iOS设备优化摄像头访问配置
       try {
-        console.log(`正在尝试访问${facingMode === "environment" ? "后置" : "前置"}摄像头...`);
+        // 使用更适合iOS的配置
+        let constraints;
         
-        const constraints = {
-          video: {
-            facingMode: facingMode,
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          },
-          audio: false
-        };
-        
-        // 本地调试，记录设备信息
-        if (navigator.mediaDevices.enumerateDevices) {
-          try {
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const videoDevices = devices.filter(device => device.kind === 'videoinput');
-            console.log('可用视频设备:', videoDevices.length, videoDevices);
-          } catch (e) {
-            console.log('无法枚举设备:', e);
-          }
+        if (isIOS()) {
+          // iOS设备特殊处理
+          constraints = {
+            audio: false,
+            video: {
+              facingMode: facingMode
+            }
+          };
+          console.log("使用iOS优化配置");
+        } else {
+          // 非iOS设备
+          constraints = {
+            audio: false,
+            video: {
+              facingMode: facingMode,
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            }
+          };
+          console.log("使用标准配置");
         }
         
+        // 列举可用设备（调试用）
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoDevices = devices.filter(device => device.kind === 'videoinput');
+          console.log('可用视频设备:', videoDevices.length, videoDevices);
+        } catch (e) {
+          console.log('无法枚举设备:', e);
+        }
+        
+        // 请求访问摄像头
+        console.log("请求摄像头权限...");
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          console.log(`成功获取${facingMode === "environment" ? "后置" : "前置"}摄像头流`);
+          console.log("成功获取摄像头流!");
           
-          // 确保视频加载并播放
+          // 添加视频加载事件处理
           videoRef.current.onloadedmetadata = () => {
+            console.log("视频元数据已加载");
             if (videoRef.current) {
-              videoRef.current.play().catch(e => console.error("视频播放失败:", e));
+              // 对于iOS设备，添加特殊处理
+              if (isIOS()) {
+                videoRef.current.setAttribute('playsinline', 'true');
+                videoRef.current.setAttribute('webkit-playsinline', 'true');
+              }
+              
+              // 播放视频
+              videoRef.current.play().then(() => {
+                console.log("视频播放成功");
+              }).catch(e => {
+                console.error("视频播放失败:", e);
+                // 尝试自动播放策略
+                const playPromise = videoRef.current?.play();
+                if (playPromise) {
+                  playPromise.catch(() => {
+                    // 用户交互后再尝试播放
+                    document.addEventListener('touchstart', function playOnTouch() {
+                      if (videoRef.current) videoRef.current.play();
+                      document.removeEventListener('touchstart', playOnTouch);
+                    }, { once: true });
+                  });
+                }
+              });
             }
           };
         }
       } catch (err) {
-        // 如果指定摄像头失败，尝试任何可用的摄像头
-        console.log(`${facingMode === "environment" ? "后置" : "前置"}摄像头访问失败，尝试任何可用摄像头...`, err);
+        console.error("指定摄像头访问失败:", err);
         
+        // 尝试使用简单配置
         try {
           const fallbackConstraints = { 
             video: true,
             audio: false
           };
           
+          console.log("尝试备用配置...");
           const stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
           
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
-            console.log("成功获取可用摄像头流");
+            console.log("成功获取备用摄像头流");
             
             // 确保视频加载并播放
             videoRef.current.onloadedmetadata = () => {
               if (videoRef.current) {
-                videoRef.current.play().catch(e => console.error("视频播放失败:", e));
+                if (isIOS()) {
+                  videoRef.current.setAttribute('playsinline', 'true');
+                  videoRef.current.setAttribute('webkit-playsinline', 'true');
+                }
+                videoRef.current.play().catch(e => console.error("备用视频播放失败:", e));
               }
             };
           }
         } catch (finalErr) {
-          throw finalErr; // 如果两种方式都失败，抛出错误
+          console.error("备用摄像头也失败:", finalErr);
+          throw finalErr; 
         }
       }
       
@@ -239,8 +294,8 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
     if (!isOpen) return null;
     
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end">
-        <div className="bg-white rounded-t-xl w-full p-5 slide-in-bottom">
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end overflow-y-auto">
+        <div className="bg-white rounded-t-xl w-full p-5 slide-in-bottom max-h-[90vh] overflow-y-auto">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold">Capture Receipt</h3>
             <button 
@@ -262,6 +317,8 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
                   className="w-full h-full object-cover rounded-lg"
                   autoPlay 
                   playsInline
+                  muted 
+                  webkit-playsinline="true"
                 />
                 <canvas ref={canvasRef} className="hidden" />
                 <button 
@@ -439,6 +496,8 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
                 className="w-full h-full object-cover rounded-lg"
                 autoPlay 
                 playsInline
+                muted
+                webkit-playsinline="true"
               />
               <canvas ref={canvasRef} className="hidden" />
               <button 
