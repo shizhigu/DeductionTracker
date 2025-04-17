@@ -50,7 +50,7 @@ export default function Home() {
             <div className="flex justify-between items-center mb-3">
               <h3 className="font-semibold text-neutral-800">Recent Expenses</h3>
               <Link href="/expenses">
-                <a className="text-primary text-xs">View All</a>
+                <div className="text-primary text-xs cursor-pointer">View All</div>
               </Link>
             </div>
             <ExpenseList />
@@ -66,7 +66,7 @@ export default function Home() {
             <div className="flex justify-between items-center mb-5">
               <h3 className="text-lg font-semibold text-neutral-800">Recent Expenses</h3>
               <Link href="/expenses">
-                <a className="text-primary text-sm hover:text-primary-600">View All</a>
+                <div className="text-primary text-sm hover:text-primary-600 cursor-pointer">View All</div>
               </Link>
             </div>
             <ExpenseList />

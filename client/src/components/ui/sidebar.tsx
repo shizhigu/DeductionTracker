@@ -32,9 +32,9 @@ const SidebarItem = ({
 }: SidebarItemProps) => {
   return (
     <Link href={href}>
-      <a
+      <div
         className={cn(
-          "flex items-center px-3 py-3 text-sm rounded-md",
+          "flex items-center px-3 py-3 text-sm rounded-md cursor-pointer",
           isActive
             ? "bg-primary-50 text-primary border-r-4 border-primary"
             : "text-neutral-600 hover:bg-neutral-50"
@@ -42,7 +42,7 @@ const SidebarItem = ({
       >
         {icon && <span className="w-5 mr-3">{icon}</span>}
         <span>{title}</span>
-      </a>
+      </div>
     </Link>
   );
 };

@@ -68,7 +68,7 @@ export default function Expenses() {
   return (
     <div className={isMobile ? "p-5 pb-20" : "p-8"}>
       <header className="mb-6 flex justify-between items-center">
-        <h2 className={isMobile ? "text-xl" : "text-2xl"} className="font-semibold text-neutral-800">Expenses</h2>
+        <h2 className={`${isMobile ? "text-xl" : "text-2xl"} font-semibold text-neutral-800`}>Expenses</h2>
         <Button 
           size={isMobile ? "sm" : "default"}
           onClick={() => setShowReceiptModal(true)}
