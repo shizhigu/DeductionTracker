@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 47.4% 11.2%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 47.4% 11.2%;
+
+    --primary: 216 98% 52%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 100% 50%;
+    --destructive-foreground: 210 40% 98%;
+
+    --ring: 215 20.2% 65.1%;
+
+    --radius: 0.5rem;
+    
+    /* Chart colors */
+    --chart-1: 221 83% 53%;   /* blue-500 */
+    --chart-2: 271 92% 64%;   /* purple-500 */
+    --chart-3: 162 47% 50%;   /* green-500 */
+    --chart-4: 45 93% 47%;    /* yellow-500 */
+    --chart-5: 0 84% 60%;     /* red-500 */
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-neutral-50 text-neutral-800;
+  }
+}
+
+/* Mobile-specific styles */
+@media (max-width: 768px) {
+  .desktop-only {
+    display: none !important;
+  }
+}
+
+/* Desktop-specific styles */
+@media (min-width: 769px) {
+  .mobile-only {
+    display: none !important;
+  }
+}
+
+/* Animation for bottom sheet */
+.slide-in-bottom {
+  animation: slideInBottom 0.3s ease-out forwards;
+}
+
+@keyframes slideInBottom {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Fade in animation */
+.fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
