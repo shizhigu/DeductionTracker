@@ -12,7 +12,9 @@ import {
   ArrowUpRight,
   BarChart3,
   Clock,
-  ArrowRight
+  ArrowRight,
+  ExternalLink,
+  Receipt
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
@@ -77,8 +79,8 @@ export default function DashboardPage() {
         setTaxSavings(taxData.total)
         setCategoryBreakdown(breakdownData)
         
-        // Get only the latest 5 expenses
-        setExpenses(expensesData.slice(0, 5))
+        // Get only the latest 4 expenses
+        setExpenses(expensesData.slice(0, 4))
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error)
         toast({
@@ -100,9 +102,17 @@ export default function DashboardPage() {
 
   // Get category color
   const getCategoryColor = (categoryId: number | null) => {
-    const colors = ["bg-blue-100", "bg-green-100", "bg-purple-100", "bg-yellow-100", "bg-pink-100"];
-    if (!categoryId) return "bg-gray-100 text-gray-500";
-    return `${colors[categoryId % colors.length]} text-${colors[categoryId % colors.length].replace('bg-', '').replace('100', '600')}`;
+    const colors = [
+      { bg: "bg-gray-100", text: "text-gray-600" },
+      { bg: "bg-blue-100", text: "text-blue-600" },
+      { bg: "bg-green-100", text: "text-green-600" },
+      { bg: "bg-purple-100", text: "text-purple-600" },
+      { bg: "bg-yellow-100", text: "text-yellow-600" },
+      { bg: "bg-pink-100", text: "text-pink-600" }
+    ];
+    
+    if (!categoryId) return colors[0];
+    return colors[(categoryId % colors.length) || 0];
   }
 
   // Get category name
@@ -120,44 +130,58 @@ export default function DashboardPage() {
     return categories[categoryId] || categories[0];
   }
 
-  return (
-    <div className="container mx-auto p-4 md:p-6 lg:p-8">
-      {/* Header */}
-      <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">
-            Hi {user?.name?.split(' ')[0] || 'there'}, let's track your expenses
-          </h1>
-          <p className="text-muted-foreground">
-            {new Date().toLocaleDateString('en-US', { 
-              weekday: 'long',
-              month: 'long', 
-              day: 'numeric', 
-              year: 'numeric'
-            })}
-          </p>
-        </div>
-        <div className="mt-4 md:mt-0 flex space-x-3">
-          <Button onClick={handleAddExpense}>
-            <Camera className="mr-2 h-4 w-4" /> Scan Receipt
-          </Button>
-          <Button variant="outline">
-            <Plus className="mr-2 h-4 w-4" /> Log Manually
-          </Button>
-        </div>
-      </div>
+  // Get category icon
+  const getCategoryIcon = (categoryId: number | null) => {
+    switch(categoryId) {
+      case 1: return <Receipt className="h-5 w-5" />;
+      case 2: return <FileText className="h-5 w-5" />;
+      case 3: return <ExternalLink className="h-5 w-5" />;
+      case 4: return <DollarSign className="h-5 w-5" />;
+      case 5: return <TrendingUp className="h-5 w-5" />;
+      default: return <CreditCard className="h-5 w-5" />;
+    }
+  };
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Main Stats Cards Row */}
-        <Card className="bg-white">
+  return (
+    <div className="max-w-[1600px] mx-auto px-4 py-6 md:px-6 md:py-8">
+      {/* Header */}
+      <header className="mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+              Hi {user?.name?.split(' ')[0] || 'there'}, let's track your expenses
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm sm:text-base">
+              {new Date().toLocaleDateString('en-US', { 
+                weekday: 'long',
+                month: 'long', 
+                day: 'numeric', 
+                year: 'numeric'
+              })}
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button onClick={handleAddExpense} className="whitespace-nowrap">
+              <Camera className="mr-2 h-4 w-4" /> Scan Receipt
+            </Button>
+            <Button variant="outline" className="whitespace-nowrap">
+              <Plus className="mr-2 h-4 w-4" /> Log Manually
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Summary Stats (Mobile: vertical, Desktop: horizontal) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 mb-6 lg:mb-8">
+        {/* Today's Spend */}
+        <Card className="bg-white shadow-sm border-0">
           <CardHeader className="pb-2">
-            <CardDescription>Today's Spend</CardDescription>
+            <CardDescription className="text-sm">Today's Spend</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-3xl font-bold">
+                <div className="text-2xl font-bold">
                   {isLoading ? '—' : formatCurrency(todayTotal || 0)}
                 </div>
                 <div className="flex items-center mt-1 text-xs font-medium text-green-600">
@@ -165,45 +189,47 @@ export default function DashboardPage() {
                   <span>15% less than yesterday</span>
                 </div>
               </div>
-              <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-blue-600" />
+              <div className="h-11 w-11 rounded-full bg-blue-100 flex items-center justify-center">
+                <DollarSign className="h-5 w-5 text-blue-600" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white">
+        {/* Monthly Deductible */}
+        <Card className="bg-white shadow-sm border-0">
           <CardHeader className="pb-2">
-            <CardDescription>Monthly Deductible</CardDescription>
+            <CardDescription className="text-sm">Monthly Deductible</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <div>
-                <div className="text-3xl font-bold">
+              <div className="w-full pr-4">
+                <div className="text-2xl font-bold">
                   {isLoading ? '—' : formatCurrency(monthlyDeductible || 0)}
                 </div>
                 <div className="w-full mt-2">
-                  <div className="h-2 w-full bg-gray-100 rounded-full">
+                  <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
                     <div className="h-2 bg-green-500 rounded-full" style={{ width: '65%' }}></div>
                   </div>
                   <div className="text-xs mt-1 text-gray-500">65% of monthly goal</div>
                 </div>
               </div>
-              <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
-                <CreditCard className="h-6 w-6 text-green-600" />
+              <div className="h-11 w-11 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                <CreditCard className="h-5 w-5 text-green-600" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white">
+        {/* Tax Savings */}
+        <Card className="bg-white shadow-sm border-0">
           <CardHeader className="pb-2">
-            <CardDescription>Saved in Taxes</CardDescription>
+            <CardDescription className="text-sm">Saved in Taxes</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-3xl font-bold">
+                <div className="text-2xl font-bold">
                   {isLoading ? '—' : formatCurrency(taxSavings || 0)}
                 </div>
                 <div className="flex items-center mt-1 text-xs font-medium text-blue-600">
@@ -211,20 +237,24 @@ export default function DashboardPage() {
                   <span>8% more than last month</span>
                 </div>
               </div>
-              <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-purple-600" />
+              <div className="h-11 w-11 rounded-full bg-purple-100 flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 text-purple-600" />
               </div>
             </div>
           </CardContent>
         </Card>
+      </div>
 
-        {/* Main Content Area - 2/3 width */}
-        <div className="md:col-span-2">
-          <Card className="bg-white h-full">
-            <CardHeader className="flex flex-row items-center justify-between">
+      {/* Main Content Area */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Recent Expenses Section - Left Column (8 units) */}
+        <section className="lg:col-span-8 space-y-6">
+          {/* Recent Expenses Card */}
+          <Card className="bg-white border-0 shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between pb-3 space-y-0">
               <div>
-                <CardTitle>Recent Expenses</CardTitle>
-                <CardDescription>Your latest transactions</CardDescription>
+                <CardTitle className="text-xl">Recent Expenses</CardTitle>
+                <CardDescription className="text-sm mt-1">Your latest transactions</CardDescription>
               </div>
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/expenses">
@@ -232,39 +262,54 @@ export default function DashboardPage() {
                 </Link>
               </Button>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-1">
               {isLoading ? (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex items-center p-3 animate-pulse">
+                    <div key={i} className="flex items-center p-2 animate-pulse">
                       <div className="w-10 h-10 rounded-full bg-gray-200 mr-3"></div>
                       <div className="flex-1">
                         <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
                         <div className="h-3 bg-gray-200 rounded w-1/4"></div>
                       </div>
-                      <div className="h-5 bg-gray-200 rounded w-16"></div>
+                      <div className="h-4 bg-gray-200 rounded w-16"></div>
                     </div>
                   ))}
                 </div>
               ) : expenses.length > 0 ? (
-                <div className="divide-y">
-                  {expenses.map((expense) => (
-                    <div key={expense.id} className="flex items-center py-3">
-                      <div className={`w-10 h-10 rounded-full ${getCategoryColor(expense.categoryId)} flex items-center justify-center mr-3`}>
-                        <CreditCard className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium">{expense.vendor}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {getCategoryName(expense.categoryId)} • {new Date(expense.date).toLocaleDateString()}
-                        </div>
-                      </div>
-                      <div className={`font-medium ${expense.isBusinessExpense ? 'text-green-600' : ''}`}>
-                        {formatCurrency(expense.amount)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <ul className="divide-y divide-gray-100">
+                  {expenses.map((expense) => {
+                    const categoryColor = getCategoryColor(expense.categoryId);
+                    
+                    return (
+                      <li key={expense.id} className="py-3 first:pt-0 last:pb-0">
+                        <Link href={`/expenses/${expense.id}`} className="flex items-center gap-3 group">
+                          <div className={`w-9 h-9 rounded-full ${categoryColor.bg} flex items-center justify-center flex-shrink-0`}>
+                            {getCategoryIcon(expense.categoryId)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-start">
+                              <p className="font-medium text-sm text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                                {expense.vendor}
+                              </p>
+                              <p className={`font-medium text-sm ${expense.isBusinessExpense ? 'text-green-600' : 'text-gray-900'}`}>
+                                {formatCurrency(expense.amount)}
+                              </p>
+                            </div>
+                            <div className="flex justify-between items-center mt-1">
+                              <p className="text-xs text-gray-500 truncate">
+                                {getCategoryName(expense.categoryId)} • {new Date(expense.date).toLocaleDateString()}
+                              </p>
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${expense.isBusinessExpense ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-600'}`}>
+                                {expense.isBusinessExpense ? 'Business' : 'Personal'}
+                              </span>
+                            </div>
+                          </div>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
               ) : (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground mb-4">No recent expenses found</p>
@@ -274,31 +319,61 @@ export default function DashboardPage() {
                 </div>
               )}
             </CardContent>
-            <CardFooter className="border-t pt-4">
-              <div className="flex justify-between items-center w-full text-sm text-muted-foreground">
-                <div>Showing {expenses.length} of {expenses.length} entries</div>
-                <Button variant="outline" size="sm">
-                  <FileText className="mr-2 h-4 w-4" /> Export Report
+            {expenses.length > 0 && (
+              <CardFooter className="border-t pt-4 text-sm text-muted-foreground flex justify-between items-center">
+                <span>Showing {expenses.length} of {expenses.length} entries</span>
+                <Button variant="outline" size="sm" className="h-8 px-3 text-xs">
+                  <FileText className="mr-1 h-3 w-3" /> Export CSV
                 </Button>
-              </div>
-            </CardFooter>
+              </CardFooter>
+            )}
           </Card>
-        </div>
+          
+          {/* Quick Actions - Mobile Only */}
+          <div className="block lg:hidden">
+            <Card className="bg-white border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-xl">Quick Actions</CardTitle>
+                <CardDescription className="text-sm mt-1">Frequently used tools</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center">
+                    <Calendar className="h-5 w-5 mb-2" />
+                    <span className="text-sm">Tax Calendar</span>
+                  </Button>
+                  <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center">
+                    <FileText className="h-5 w-5 mb-2" />
+                    <span className="text-sm">Generate Report</span>
+                  </Button>
+                  <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center">
+                    <Clock className="h-5 w-5 mb-2" />
+                    <span className="text-sm">Recurring</span>
+                  </Button>
+                  <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center">
+                    <BarChart3 className="h-5 w-5 mb-2" />
+                    <span className="text-sm">Analytics</span>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
 
-        {/* Sidebar Content - 1/3 width */}
-        <div className="space-y-6">
+        {/* Right Sidebar - (4 units) */}
+        <aside className="lg:col-span-4 space-y-6">
           {/* Category Breakdown */}
-          <Card className="bg-white">
-            <CardHeader>
-              <CardTitle>Category Breakdown</CardTitle>
-              <CardDescription>Business expenses by category</CardDescription>
+          <Card className="bg-white border-0 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-xl">Category Breakdown</CardTitle>
+              <CardDescription className="text-sm mt-1">Business expenses by category</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               {isLoading ? (
                 <div className="animate-pulse space-y-2">
-                  <div className="h-32 bg-gray-200 rounded-lg w-full mb-4"></div>
+                  <div className="h-24 bg-gray-200 rounded-lg w-full mb-4"></div>
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex items-center">
+                    <div key={i} className="flex items-center py-1">
                       <div className="h-3 w-3 rounded-full bg-gray-200 mr-2"></div>
                       <div className="h-4 bg-gray-200 rounded flex-1"></div>
                       <div className="h-4 bg-gray-200 rounded w-12 ml-2"></div>
@@ -307,30 +382,48 @@ export default function DashboardPage() {
                 </div>
               ) : categoryBreakdown.length > 0 ? (
                 <div>
-                  <div className="relative h-48 mb-6">
-                    <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-                      <BarChart3 className="h-24 w-24 opacity-20" />
-                      <div className="absolute">
-                        <div className="text-center">
-                          <div className="text-xl font-bold">Category</div>
-                          <div className="text-sm">Distribution</div>
-                        </div>
-                      </div>
+                  {/* Simplified chart placeholder */}
+                  <div className="relative h-32 mb-4 flex items-center justify-center">
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {categoryBreakdown.map((category) => {
+                        const color = getCategoryColor(category.categoryId);
+                        const size = Math.max(30, Math.min(60, category.percentage * 0.8));
+                        
+                        return (
+                          <div 
+                            key={category.categoryId}
+                            className={`rounded-full ${color.bg} flex items-center justify-center`}
+                            style={{ width: `${size}px`, height: `${size}px` }}
+                          >
+                            <span className={`text-xs font-semibold ${color.text}`}>
+                              {Math.round(category.percentage)}%
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                  <div className="space-y-3">
-                    {categoryBreakdown.map((category) => (
-                      <div key={category.categoryId} className="flex items-center">
-                        <div className={`h-3 w-3 rounded-full ${getCategoryColor(category.categoryId)} mr-2`}></div>
-                        <span className="flex-1">{category.categoryName}</span>
-                        <span className="font-medium">{category.percentage}%</span>
-                      </div>
-                    ))}
-                  </div>
+                  
+                  {/* Legend */}
+                  <ul className="space-y-2">
+                    {categoryBreakdown.map((category) => {
+                      const color = getCategoryColor(category.categoryId);
+                      
+                      return (
+                        <li key={category.categoryId} className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <div className={`h-3 w-3 rounded-full ${color.bg}`}></div>
+                            <span className="text-gray-700">{category.categoryName}</span>
+                          </div>
+                          <span className="font-medium">{category.percentage}%</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
               ) : (
                 <div className="text-center py-6">
-                  <p className="text-muted-foreground mb-2">No category data available</p>
+                  <p className="text-muted-foreground mb-2 text-sm">No category data available</p>
                   <Button variant="outline" size="sm" onClick={handleAddExpense}>
                     <Plus className="mr-2 h-4 w-4" /> Add Expenses
                   </Button>
@@ -339,34 +432,36 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Quick Actions */}
-          <Card className="bg-white">
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-              <CardDescription>Frequently used tools</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-3">
-                <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center">
-                  <Calendar className="h-6 w-6 mb-2" />
-                  <span>Tax Calendar</span>
-                </Button>
-                <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center">
-                  <FileText className="h-6 w-6 mb-2" />
-                  <span>Generate Report</span>
-                </Button>
-                <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center">
-                  <Clock className="h-6 w-6 mb-2" />
-                  <span>Recurring</span>
-                </Button>
-                <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center">
-                  <BarChart3 className="h-6 w-6 mb-2" />
-                  <span>Analytics</span>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          {/* Quick Actions - Desktop Only */}
+          <div className="hidden lg:block">
+            <Card className="bg-white border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-xl">Quick Actions</CardTitle>
+                <CardDescription className="text-sm mt-1">Frequently used tools</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center">
+                    <Calendar className="h-5 w-5 mb-2" />
+                    <span className="text-sm">Tax Calendar</span>
+                  </Button>
+                  <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center">
+                    <FileText className="h-5 w-5 mb-2" />
+                    <span className="text-sm">Generate Report</span>
+                  </Button>
+                  <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center">
+                    <Clock className="h-5 w-5 mb-2" />
+                    <span className="text-sm">Recurring</span>
+                  </Button>
+                  <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center">
+                    <BarChart3 className="h-5 w-5 mb-2" />
+                    <span className="text-sm">Analytics</span>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </aside>
       </div>
     </div>
   )

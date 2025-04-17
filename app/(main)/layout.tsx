@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import Image from "next/image"
 import { 
   LayoutDashboard,
   Receipt,
@@ -11,7 +10,8 @@ import {
   FileText,
   Settings,
   Menu,
-  X 
+  X,
+  LogOut
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -60,6 +60,18 @@ export default function MainLayout({ children }: MainLayoutProps) {
     setIsMobileMenuOpen(false)
   }, [pathname])
   
+  // Close menu on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setIsMobileMenuOpen(false)
+      }
+    }
+    
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+  
   // Get user initials
   const getUserInitials = () => {
     if (!user?.name) return 'U'
@@ -74,104 +86,21 @@ export default function MainLayout({ children }: MainLayoutProps) {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar - Desktop */}
-      <div className="hidden md:flex md:w-64 md:flex-col">
-        <div className="flex flex-col flex-grow border-r border-gray-200 bg-white pt-5 pb-4 overflow-y-auto">
-          <div className="flex items-center flex-shrink-0 px-4 mb-5">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
+        <div className="flex flex-col flex-1 border-r border-gray-200 bg-white">
+          <div className="flex items-center h-16 flex-shrink-0 px-6 border-b border-gray-200">
             <Link href="/dashboard" className="flex items-center">
-              <div className="h-10 w-10 rounded-md bg-blue-600 flex items-center justify-center mr-3">
-                <span className="text-white font-bold text-xl">D</span>
+              <div className="h-9 w-9 rounded-md bg-blue-600 flex items-center justify-center mr-3">
+                <span className="text-white font-bold text-lg">D</span>
               </div>
               <h1 className="text-xl font-bold tracking-tight">DeduX</h1>
             </Link>
           </div>
           
-          <nav className="mt-5 flex-1 px-4 space-y-1">
-            {navItems.map((item) => {
-              const isActive = pathname === item.href
-              
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                    isActive
-                      ? "bg-blue-50 text-blue-600"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  <span className={`mr-3 ${isActive ? "text-blue-600" : "text-gray-500"}`}>
-                    {item.icon}
-                  </span>
-                  {item.title}
-                </Link>
-              )
-            })}
-          </nav>
-          
-          {/* User info */}
-          <div className="flex items-center px-4 mt-6 mb-2">
-            <Avatar>
-              <AvatarImage src="" alt={user?.name || "User"} />
-              <AvatarFallback>
-                {getUserInitials()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="ml-3">
-              <p className="text-sm font-medium">{user?.name || "User"}</p>
-              <p className="text-xs text-gray-500">{user?.username || "user@example.com"}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Mobile header */}
-      <div className="md:hidden bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-10">
-        <div className="flex items-center justify-between h-16 px-4">
-          <Link href="/dashboard" className="flex items-center">
-            <div className="h-8 w-8 rounded-md bg-blue-600 flex items-center justify-center mr-2">
-              <span className="text-white font-bold text-lg">D</span>
-            </div>
-            <h1 className="text-lg font-bold tracking-tight">DeduX</h1>
-          </Link>
-          
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            {isMobileMenuOpen ? (
-              <X className="h-5 w-5" />
-            ) : (
-              <Menu className="h-5 w-5" />
-            )}
-          </Button>
-        </div>
-      </div>
-      
-      {/* Mobile menu */}
-      {isMobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-40 bg-gray-800 bg-opacity-25 backdrop-blur-sm">
-          <div className="fixed inset-y-0 left-0 w-full max-w-xs bg-white shadow-lg z-50">
-            <div className="flex items-center justify-between h-16 px-6 border-b">
-              <Link href="/dashboard" className="flex items-center">
-                <div className="h-8 w-8 rounded-md bg-blue-600 flex items-center justify-center mr-2">
-                  <span className="text-white font-bold text-lg">D</span>
-                </div>
-                <h1 className="text-lg font-bold tracking-tight">DeduX</h1>
-              </Link>
-              
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
-            
-            <div className="px-2 pt-2 pb-3 space-y-1">
+          <div className="flex flex-col flex-1 pt-5 pb-4 overflow-y-auto">
+            <nav className="mt-2 flex-1 px-4 space-y-2">
               {navItems.map((item) => {
                 const isActive = pathname === item.href
                 
@@ -179,7 +108,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center px-3 py-2 text-base font-medium rounded-md ${
+                    className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
                       isActive
                         ? "bg-blue-50 text-blue-600"
                         : "text-gray-700 hover:bg-gray-100"
@@ -192,37 +121,123 @@ export default function MainLayout({ children }: MainLayoutProps) {
                   </Link>
                 )
               })}
-            </div>
+            </nav>
             
             {/* User info */}
-            <div className="border-t border-gray-200 mt-4 pt-4 px-4">
-              <div className="flex items-center">
-                <Avatar>
+            <div className="border-t border-gray-200 mt-auto">
+              <div className="flex items-center px-4 py-3 h-16">
+                <Avatar className="h-9 w-9">
                   <AvatarImage src="" alt={user?.name || "User"} />
-                  <AvatarFallback>
+                  <AvatarFallback className="text-sm">
                     {getUserInitials()}
                   </AvatarFallback>
                 </Avatar>
-                <div className="ml-3">
-                  <p className="text-sm font-medium">{user?.name || "User"}</p>
-                  <p className="text-xs text-gray-500">{user?.username || "user@example.com"}</p>
+                <div className="ml-3 flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{user?.name || "User"}</p>
+                  <p className="text-xs text-gray-500 truncate">{user?.username || "user@example.com"}</p>
                 </div>
+                <Button variant="ghost" size="icon" className="ml-1">
+                  <LogOut className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </div>
-          
-          {/* Backdrop click to close */}
-          <div 
-            className="fixed inset-0 z-30" 
-            onClick={() => setIsMobileMenuOpen(false)}
-            aria-hidden="true"
-          />
         </div>
+      </aside>
+      
+      {/* Mobile header */}
+      <div className="md:hidden bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-40 shadow-sm">
+        <div className="flex items-center justify-between h-16 px-4">
+          <Link href="/dashboard" className="flex items-center">
+            <div className="h-8 w-8 rounded-md bg-blue-600 flex items-center justify-center mr-2">
+              <span className="text-white font-bold text-lg">D</span>
+            </div>
+            <h1 className="text-lg font-bold tracking-tight">DeduX</h1>
+          </Link>
+          
+          <div className="flex items-center">
+            <Avatar className="h-8 w-8 mr-3">
+              <AvatarFallback className="text-xs">
+                {getUserInitials()}
+              </AvatarFallback>
+            </Avatar>
+            
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label="Menu"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
+      </div>
+      
+      {/* Mobile menu */}
+      {isMobileMenuOpen && (
+        <>
+          <div 
+            className="md:hidden fixed inset-0 z-40 bg-gray-800/40 backdrop-blur-sm transition-opacity"
+            aria-hidden="true"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          
+          <div className="md:hidden fixed inset-y-0 right-0 z-50 w-full max-w-[280px] bg-white shadow-xl overflow-y-auto transition transform">
+            <div className="flex items-center justify-between h-16 px-6 border-b">
+              <p className="text-lg font-medium">Menu</p>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setIsMobileMenuOpen(false)}
+                aria-label="Close menu"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            
+            <div className="px-3 py-4">
+              <div className="space-y-1">
+                {navItems.map((item) => {
+                  const isActive = pathname === item.href
+                  
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`flex items-center px-4 py-3 text-base font-medium rounded-lg transition-colors ${
+                        isActive
+                          ? "bg-blue-50 text-blue-600"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <span className={`mr-4 ${isActive ? "text-blue-600" : "text-gray-500"}`}>
+                        {item.icon}
+                      </span>
+                      {item.title}
+                    </Link>
+                  )
+                })}
+              </div>
+              
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-center gap-2"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>Sign out</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
       
       {/* Main content */}
-      <div className="flex flex-col flex-1 md:pl-0">
-        <main className="flex-1 pb-8 mt-16 md:mt-0">
+      <div className="flex flex-col flex-1 md:pl-64">
+        <main className="flex-1 px-0 pb-8 pt-16 md:pt-0">
           {children}
         </main>
       </div>
