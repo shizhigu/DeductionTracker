@@ -29,6 +29,7 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
   // Camera handling states
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -71,38 +72,70 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
         return;
       }
       
-      // 首先尝试使用后置摄像头
+      // 尝试使用当前选择的摄像头
       try {
+        console.log(`正在尝试访问${facingMode === "environment" ? "后置" : "前置"}摄像头...`);
+        
         const constraints = {
           video: {
-            facingMode: { exact: "environment" },
+            facingMode: facingMode,
             width: { ideal: 1280 },
             height: { ideal: 720 }
-          }
-        };
-        
-        console.log("正在尝试访问后置摄像头...");
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        videoRef.current.srcObject = stream;
-        console.log("成功获取后置摄像头流");
-      } catch (err) {
-        // 如果后置摄像头失败，尝试任何可用的摄像头
-        console.log("后置摄像头访问失败，尝试任何可用摄像头...", err);
-        const fallbackConstraints = { 
-          video: true,
+          },
           audio: false
         };
-        const stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
-        videoRef.current.srcObject = stream;
-        console.log("成功获取可用摄像头流");
-      }
-      
-      // 确保视频加载并播放
-      videoRef.current.onloadedmetadata = () => {
-        if (videoRef.current) {
-          videoRef.current.play().catch(e => console.error("视频播放失败:", e));
+        
+        // 本地调试，记录设备信息
+        if (navigator.mediaDevices.enumerateDevices) {
+          try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+            console.log('可用视频设备:', videoDevices.length, videoDevices);
+          } catch (e) {
+            console.log('无法枚举设备:', e);
+          }
         }
-      };
+        
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          console.log(`成功获取${facingMode === "environment" ? "后置" : "前置"}摄像头流`);
+          
+          // 确保视频加载并播放
+          videoRef.current.onloadedmetadata = () => {
+            if (videoRef.current) {
+              videoRef.current.play().catch(e => console.error("视频播放失败:", e));
+            }
+          };
+        }
+      } catch (err) {
+        // 如果指定摄像头失败，尝试任何可用的摄像头
+        console.log(`${facingMode === "environment" ? "后置" : "前置"}摄像头访问失败，尝试任何可用摄像头...`, err);
+        
+        try {
+          const fallbackConstraints = { 
+            video: true,
+            audio: false
+          };
+          
+          const stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+          
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            console.log("成功获取可用摄像头流");
+            
+            // 确保视频加载并播放
+            videoRef.current.onloadedmetadata = () => {
+              if (videoRef.current) {
+                videoRef.current.play().catch(e => console.error("视频播放失败:", e));
+              }
+            };
+          }
+        } catch (finalErr) {
+          throw finalErr; // 如果两种方式都失败，抛出错误
+        }
+      }
       
       toast({
         title: "相机已开启",
@@ -231,6 +264,24 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
                   playsInline
                 />
                 <canvas ref={canvasRef} className="hidden" />
+                <button 
+                  onClick={() => {
+                    stopCamera();
+                    setFacingMode(facingMode === "environment" ? "user" : "environment");
+                    setTimeout(() => {
+                      startCamera();
+                    }, 300);
+                  }}
+                  className="absolute bottom-2 right-2 bg-white bg-opacity-75 p-2 rounded-full"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"></path>
+                    <rect x="16" y="2" width="6" height="6" rx="1"></rect>
+                    <path d="m21 15-3-3 3-3"></path>
+                    <path d="m8 12 4-4 4 4"></path>
+                    <path d="m8 12 4 4 4-4"></path>
+                  </svg>
+                </button>
               </div>
             ) : capturedImage ? (
               <img 
@@ -390,6 +441,24 @@ export default function ReceiptCapture({ isOpen, onClose, isMobile }: ReceiptCap
                 playsInline
               />
               <canvas ref={canvasRef} className="hidden" />
+              <button 
+                onClick={() => {
+                  stopCamera();
+                  setFacingMode(facingMode === "environment" ? "user" : "environment");
+                  setTimeout(() => {
+                    startCamera();
+                  }, 300);
+                }}
+                className="absolute bottom-2 right-2 bg-white bg-opacity-75 p-2 rounded-full"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"></path>
+                  <rect x="16" y="2" width="6" height="6" rx="1"></rect>
+                  <path d="m21 15-3-3 3-3"></path>
+                  <path d="m8 12 4-4 4 4"></path>
+                  <path d="m8 12 4 4 4-4"></path>
+                </svg>
+              </button>
             </div>
           ) : capturedImage ? (
             <img 
