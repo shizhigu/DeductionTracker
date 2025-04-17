@@ -4,6 +4,8 @@ import {
   expenses, type Expense, type InsertExpense,
   reports, type Report, type InsertReport
 } from "@shared/schema";
+import { db } from './db';
+import { eq, and, gte, sql, inArray } from 'drizzle-orm';
 
 export interface IStorage {
   // User methods
@@ -335,6 +337,8 @@ export class MemStorage implements IStorage {
 }
 
 // DatabaseStorage 实现
+
+// DatabaseStorage 实现
 export class DatabaseStorage implements IStorage {
   // 用户方法
   async getUser(id: number): Promise<User | undefined> {
@@ -420,7 +424,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteExpense(id: number): Promise<boolean> {
     const result = await db.delete(expenses).where(eq(expenses.id, id));
-    return result.count > 0;
+    return result !== null;
   }
 
   // 报告方法
@@ -539,9 +543,5 @@ export class DatabaseStorage implements IStorage {
     });
   }
 }
-
-// 使用数据库存储
-import { db } from './db';
-import { eq, and, gte, sql, inArray } from 'drizzle-orm';
 
 export const storage = new DatabaseStorage();
