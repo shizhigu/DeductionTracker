@@ -1,29 +1,28 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
-import * as schema from "./schema";
+import { Pool, neonConfig } from '@neondatabase/serverless'
+import { drizzle } from 'drizzle-orm/neon-serverless'
+import * as schema from './schema'
+import ws from 'ws'
 
-// This is needed for Neon serverless
-neonConfig.webSocketConstructor = ws;
+// Configure Neon for WebSocket
+neonConfig.webSocketConstructor = ws
 
+// Check if DATABASE_URL is defined
 if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
+  throw new Error('DATABASE_URL must be set. Did you forget to provision a database?')
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle(pool, { schema });
+// Create database connection
+export const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+export const drizzleClient = drizzle(pool, { schema })
 
-// When using Next.js server components, we need to make sure 
-// not to initialize the db client more than once
+// Ensure we have a single instance of the database client in development
 declare global {
-  var dbClient: typeof db | undefined;
+  var dbClient: typeof drizzleClient | undefined
 }
 
-// Initialize only once in development
-export const drizzleClient = globalThis.dbClient || db;
+export const db = globalThis.dbClient || drizzleClient
 
-if (process.env.NODE_ENV !== "production") {
-  globalThis.dbClient = db;
+// In development, maintain a single connection across hot reloads
+if (process.env.NODE_ENV !== 'production') {
+  globalThis.dbClient = db
 }
