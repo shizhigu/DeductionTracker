@@ -1,90 +1,62 @@
-# DeductionTracker - 报销和税务追踪应用
+# DeductionTracker (DeduX)
 
-DeductionTracker 是一个全栈应用程序，用于跟踪个人和小型企业的费用和税收减免。它支持Web端和移动端，提供一致的用户体验。
+> Expense tracking and tax deduction management for freelancers -- capture receipts, classify expenses, and maximize tax savings at filing time.
 
-## 项目架构
+## What is this?
 
-该项目采用了新的架构设计，将前端分为Web和移动端：
+DeductionTracker is a full-stack expense management platform with dual Web (Next.js) and Mobile (React/Vite) clients sharing a common component library, backed by a unified Express API and PostgreSQL on Neon. It helps freelancers and small-business owners distinguish business from personal expenses, model partial deductibility percentages, track estimated tax savings in real time, and generate exportable reports for their accountant.
 
+## Why?
+
+I was frustrated that existing tools fall into two extremes: enterprise expense platforms (SAP Concur, Expensify) designed for corporate reimbursement workflows, or consumer budgeting apps (Mint, YNAB) that do not model the business/personal distinction or partial deductibility that freelancers need. I built DeduX to fill the gap with a lightweight, purpose-built tool that works on both desktop and mobile.
+
+## How it works
+
+The architecture has four layers connected by a shared schema:
+
+1. **Web Dashboard (Next.js App Router)** -- data-dense dashboard with interactive charts (Recharts + Chart.js), KPI cards, category breakdowns, and a quick-add floating action button for expenses and receipt scans
+2. **Mobile Client (React + Vite + Wouter)** -- mobile-first SPA with bottom-tab navigation, horizontally scrollable stat cards, and a receipt capture flow that activates the device camera via native HTML file input
+3. **Shared Component Library** -- `AppLayout`, `Sidebar`, `MobileNav`, `Logo`, and `UserProfile` components imported by both clients, with an `isMobileOverride` prop to force mobile layout on the Vite client
+4. **Express API Server** -- RESTful endpoints for CRUD operations plus four summary/analytics endpoints (today's total, monthly deductible, tax savings, category breakdown)
+5. **PostgreSQL (Neon)** -- four tables (`users`, `categories`, `expenses`, `reports`) managed by Drizzle ORM with Zod validation via `drizzle-zod`
+
+Tax savings are computed server-side: `SUM(amount * deductible_percentage / 100 * tax_rate)` in a single SQL query, supporting partial deductions (e.g., a car used 75% for business).
+
+## Key Technical Highlights
+
+- **Shared component architecture**: A single `shared/` directory provides the responsive layout shell, navigation, and branding to both the Next.js and Vite clients -- the `AppLayout` auto-switches between sidebar and bottom-tab layouts based on device detection or an explicit override prop.
+- **Storage abstraction**: An `IStorage` interface with `MemStorage` (in-memory) and `DatabaseStorage` (PostgreSQL) implementations lets you prototype the full UI without a database, then switch to production storage in one line.
+- **Native receipt capture**: After iterating through `getUserMedia` failures on iOS Safari, the receipt flow uses `<input capture="environment">` to delegate camera access to the OS -- dramatically more reliable and zero permissions prompting.
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Web Client | Next.js 15 (App Router) |
+| Mobile Client | React 18 + Vite 5 + Wouter |
+| API Server | Express 4 |
+| Database | PostgreSQL (Neon Serverless) |
+| ORM | Drizzle ORM + drizzle-zod |
+| State (Web) | Zustand 5 |
+| State (Mobile) | TanStack React Query 5 |
+| UI | shadcn/ui + Radix UI + MUI 7 |
+| Charts | Recharts + Chart.js 4 |
+| Styling | Tailwind CSS 3 + Framer Motion |
+| Forms | React Hook Form + Zod |
+| Build | Vite + esbuild |
+| Language | TypeScript 5.6 |
+
+## Quick Start
+
+```bash
+git clone https://github.com/shizhigu/DeductionTracker.git
+cd DeductionTracker
+cp .env.example .env  # add Neon database URL
+npm install
+npm run db:push
+npm run dev
 ```
-DeductionTracker/
-├── app/                     # Next.js 应用 (Web端)
-│   ├── components/          # Web端组件
-│   ├── (main)/              # 主页面路由
-│   └── ...
-├── client/                  # React应用 (移动端)
-│   ├── src/                 # 移动端源代码
-│   │   ├── components/      # 移动端特定组件
-│   │   ├── pages/           # 移动端页面
-│   │   └── ...
-├── server/                  # 服务器端代码
-└── shared/                  # 共享代码和组件
-    ├── components/          # 共享UI组件
-    │   ├── navigation/      # 导航相关组件
-    │   └── ui/              # 通用UI组件
-    └── layout/              # 共享布局组件
-```
 
-## 组件架构说明
+## License
 
-新的架构采用了共享组件设计模式，将UI逻辑分离为：
-
-### 核心布局组件
-
-- `AppLayout`: 应用程序的主布局，根据屏幕尺寸自动适应Web和移动视图
-- `Sidebar`: 桌面端侧边栏组件，包含导航链接
-- `MobileHeader`: 移动端顶部导航栏
-- `MobileFooter`: 移动端底部导航栏
-- `MobileMenu`: 移动端侧边菜单
-
-### 共享UI组件
-
-- `Logo`: 应用程序Logo组件，支持不同尺寸
-- `UserProfile`: 用户资料组件，显示用户信息和控制选项
-
-## 响应式设计
-
-该应用采用了混合响应式设计方法：
-
-1. **自动检测**: 基于设备类型和窗口宽度自动切换布局
-2. **显式覆盖**: 允许通过`isMobileOverride`属性明确指定布局模式
-
-### Web端布局 (桌面)
-
-- 左侧固定侧边栏，含应用Logo
-- 主内容区域占据大部分空间
-- 用户信息显示在侧边栏底部
-
-### 移动端布局
-
-- 顶部导航栏，包含菜单按钮、Logo和用户信息
-- 全宽主内容区域
-- 底部导航栏，包含主要导航项
-- 可选的悬浮操作按钮，用于主要操作
-
-## 导航结构
-
-应用程序共有五个主要导航项：
-
-1. **Dashboard/Home**: 仪表板/首页，显示概览信息
-2. **Expenses**: 费用管理
-3. **Categories**: 类别管理
-4. **Tax Reports/Reports**: 税务报告
-5. **Settings**: 应用设置
-
-## 迁移指南
-
-项目正在从旧架构迁移到新设计。请按照以下步骤迁移现有代码：
-
-1. Web端使用 `app/(main)/layout-new.tsx` 替代 `app/(main)/layout.tsx`
-2. 移动端使用 `client/src/App-new.tsx` 替代 `client/src/App.tsx`
-3. 确保现有页面组件与新布局兼容
-
-## 优势
-
-新的架构设计提供了以下优势：
-
-- **代码复用**: 减少Web和移动端重复代码
-- **一致的用户体验**: 跨平台保持设计语言一致
-- **更好的可维护性**: 通过共享组件降低维护难度
-- **更高的开发效率**: 新功能只需实现一次即可应用到所有平台 
+MIT
